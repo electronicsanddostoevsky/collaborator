@@ -1,5 +1,13 @@
 # Collaborator platform history
 
+## 2026-09-09 — Local Blender workshop
+
+- Add a guided describe, generate, preview, revise, share, and accept workflow to the Mahabharata mission.
+- Connect a local Python companion with a temporary pairing code; discover Blender and installed Ollama models.
+- Translate validated scene data into Blender blockouts, with local run history, cancellation and bounded execution.
+- Retain shared editable result bundles separately from Git; commit content-hashed references on maintainer acceptance.
+- Include a Windows prerequisite installation helper. Full generation requires Blender and a downloaded local model; those dependencies are not bundled.
+
 ## 2026-09-09 — Reviewed contributions between forks
 
 - Propose fixed working-file versions from a fork to its direct upstream mission.

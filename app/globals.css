@@ -1678,3 +1678,54 @@ input[type='file']::file-selector-button {
     grid-template-columns: 1fr;
   }
 }
+
+.workshop-connect {
+  margin: 24px 0;
+}
+.workshop-connect summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 12px 0;
+}
+.workshop-steps {
+  padding-left: 24px;
+  line-height: 1.7;
+}
+.workshop-steps li {
+  margin: 12px 0;
+}
+.workshop-steps a {
+  text-decoration: underline;
+}
+.workshop-pair {
+  display: flex;
+  gap: 16px;
+  align-items: end;
+  margin-top: 20px;
+}
+.workshop-pair label {
+  flex: 1;
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+}
+.workshop-pair input {
+  background: #101711;
+  border: 1px solid #59684b;
+  border-radius: 8px;
+  padding: 12px;
+  color: inherit;
+  width: 100%;
+}
+.workshop-preview {
+  width: 100%;
+  max-width: 560px;
+  border-radius: 12px;
+  margin: 16px 0;
+}
+@media (max-width: 600px) {
+  .workshop-pair {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

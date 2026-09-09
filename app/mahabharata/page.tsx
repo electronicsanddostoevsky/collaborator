@@ -248,6 +248,16 @@ export default function Home() {
                 <TabsTrigger value="updates">Updates</TabsTrigger>
                 <TabsTrigger value="reviews">Contributions</TabsTrigger>
               </TabsList>
+              <div className="aside-card">
+                <h2>Make something with an agent</h2>
+                <p>
+                  Describe a rough 3D asset, let your local model and Blender
+                  make a draft, and direct the next iteration.
+                </p>
+                <a className="primary" href="/workshop">
+                  Open the Blender workshop ↗
+                </a>
+              </div>
               <TabsContent value="updates">
                 <Updates mission="mahabharata" />
               </TabsContent>

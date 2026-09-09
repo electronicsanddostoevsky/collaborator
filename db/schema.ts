@@ -224,3 +224,23 @@ export const mergeRequests = sqliteTable(
     index('idx_merge_source').on(t.source),
   ],
 );
+export const workshopArtifacts = sqliteTable(
+  'workshop_artifacts',
+  {
+    id: text('id').primaryKey(),
+    mission: text('mission').notNull(),
+    userId: text('user_id').notNull(),
+    author: text('author').notNull(),
+    prompt: text('prompt').notNull(),
+    model: text('model').notNull(),
+    objectKey: text('object_key').notNull(),
+    size: integer('size').notNull(),
+    sha256: text('sha256').notNull(),
+    status: text('status').notNull().default('uploading'),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [
+    index('idx_workshop_mission').on(t.mission),
+    index('idx_workshop_user').on(t.userId),
+  ],
+);
