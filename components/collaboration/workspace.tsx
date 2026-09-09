@@ -1,5 +1,12 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@/components/ui/select';
 import { ArrowUpRight, Check, RefreshCw } from 'lucide-react';
 export type Proposal = {
   id: string;
@@ -13,6 +20,11 @@ export type Proposal = {
   created_at: string;
   revision: number | null;
   mine: boolean;
+  artifact_id: string | null;
+  parent_id: string | null;
+  filename: string | null;
+  size: number | null;
+  sha256: string | null;
 };
 export type Workspace = {
   user: { name: string; isMaintainer: boolean } | null;
@@ -76,6 +88,13 @@ export function ContributionForm({
     [url, setUrl] = useState(''),
     [id, setId] = useState(() => crypto.randomUUID()),
     [sent, setSent] = useState(false);
+  const [file, setFile] = useState<File | null>(null),
+    [artifact, setArtifact] = useState<{ id: string; filename: string } | null>(
+      null,
+    ),
+    [parentId, setParentId] = useState('none'),
+    [uploading, setUploading] = useState(false),
+    [uploadError, setUploadError] = useState('');
   const claim = data?.claims.find((c) => c.taskId === taskId);
   const pending = data?.proposals.find(
     (p) => p.task_id === taskId && p.mine && p.status === 'pending',
@@ -85,7 +104,13 @@ export function ContributionForm({
       {!data ? (
         <p>Loading contribution workspace…</p>
       ) : !data.user ? (
-        <p>Sign in through the site to contribute.</p>
+        <a
+          className="primary"
+          href="/signin-with-chatgpt?return_to=%2F"
+          target="_top"
+        >
+          Sign in with ChatGPT
+        </a>
       ) : (
         <>
           <p className="identity-line">
@@ -115,6 +140,38 @@ export function ContributionForm({
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
+                    setUploadError('');
+                    let uploaded = artifact;
+                    if (file && !uploaded) {
+                      setUploading(true);
+                      try {
+                        const r = await fetch(
+                          `/api/artifacts?taskId=${encodeURIComponent(taskId)}&filename=${encodeURIComponent(file.name)}`,
+                          {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/octet-stream',
+                            },
+                            body: file,
+                          },
+                        );
+                        const result = (await r.json()) as {
+                          id: string;
+                          filename: string;
+                          error?: string;
+                        };
+                        if (!r.ok) throw Error(result.error || 'Upload failed');
+                        uploaded = result;
+                        setArtifact(result);
+                      } catch (e) {
+                        setUploadError(
+                          e instanceof Error ? e.message : 'Upload failed',
+                        );
+                        return;
+                      } finally {
+                        setUploading(false);
+                      }
+                    }
                     if (
                       await act({
                         action: 'submit',
@@ -123,12 +180,17 @@ export function ContributionForm({
                         title,
                         body,
                         url,
+                        artifactId: uploaded?.id || null,
+                        parentId: parentId === 'none' ? null : parentId,
                       })
                     ) {
                       setSent(true);
                       setTitle('');
                       setBody('');
                       setUrl('');
+                      setFile(null);
+                      setArtifact(null);
+                      setParentId('none');
                       setId(crypto.randomUUID());
                     }
                   }}
@@ -166,13 +228,82 @@ export function ContributionForm({
                       placeholder="https://…"
                     />
                   </label>
+                  <label>
+                    Preserve a file <span>(optional, up to 10 MB)</span>
+                    <input
+                      type="file"
+                      accept=".txt,.md,.json,.png,.jpg,.jpeg,.pdf,.zip,.glb,.stl,.step,.stp"
+                      disabled={busy || uploading}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] || null;
+                        setArtifact(null);
+                        if (f && f.size > 10 * 1024 * 1024) {
+                          setUploadError('Choose a file of 10 MB or smaller.');
+                          setFile(null);
+                          e.target.value = '';
+                          return;
+                        }
+                        setUploadError('');
+                        setFile(f);
+                      }}
+                    />
+                  </label>
+                  {artifact && (
+                    <p className="success-note">
+                      {artifact.filename} is uploaded and ready to attach.
+                    </p>
+                  )}
+                  <label htmlFor="parent-contribution">
+                    Builds on <span>(optional)</span>
+                  </label>
+                  <Select
+                    value={parentId}
+                    onValueChange={(v) => setParentId(String(v))}
+                  >
+                    <SelectTrigger id="parent-contribution" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">A new contribution</SelectItem>
+                      {data.proposals
+                        .filter(
+                          (p) =>
+                            p.task_id === taskId &&
+                            ['accepted', 'changes_requested'].includes(
+                              p.status,
+                            ),
+                        )
+                        .map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.revision
+                              ? 'Revision ' + p.revision
+                              : 'Changes requested'}{' '}
+                            · {p.title}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  {uploadError && (
+                    <p role="alert" className="error-note">
+                      {uploadError}
+                    </p>
+                  )}
                   <p className="field-note">
                     Use your own work or material you have permission to share.
                     This is a private pilot; public contribution terms are not
-                    finalized. External files remain at their original links.
+                    finalized. Uploaded files are preserved; external links are
+                    not. Files are downloaded, never executed here.
                   </p>
-                  <button className="primary" disabled={busy} type="submit">
-                    {busy ? 'Saving…' : 'Submit for review'}
+                  <button
+                    className="primary"
+                    disabled={busy || uploading}
+                    type="submit"
+                  >
+                    {uploading
+                      ? 'Uploading…'
+                      : busy
+                        ? 'Saving…'
+                        : 'Submit for review'}
                   </button>
                 </form>
               )}
@@ -213,7 +344,7 @@ function ReviewCard({
 }) {
   const [feedback, setFeedback] = useState('');
   return (
-    <article className="proposal-card">
+    <article className="proposal-card" id={'proposal-' + p.id}>
       <div className="proposal-meta">
         <span className={'status ' + p.status}>
           {p.status.replaceAll('_', ' ')}
@@ -224,6 +355,28 @@ function ReviewCard({
         {p.revision && <span>Revision {p.revision}</span>}
       </div>
       <h3>{p.title}</h3>
+      {p.parent_id && (
+        <a className="text-button" href={'#proposal-' + p.parent_id}>
+          Builds on:{' '}
+          {workspace.data?.proposals.find((x) => x.id === p.parent_id)?.title ||
+            'earlier contribution'}
+        </a>
+      )}
+      {p.artifact_id && (
+        <div className="stored-artifact">
+          <a
+            className="secondary"
+            href={'/api/artifacts?id=' + encodeURIComponent(p.artifact_id)}
+          >
+            {p.filename} · Download
+          </a>
+          <p>{((p.size || 0) / 1024).toFixed(1)} KB · Preserved upload</p>
+          <details>
+            <summary>File fingerprint</summary>
+            <code>{p.sha256}</code>
+          </details>
+        </div>
+      )}
       <p className="submitted-body">{p.body}</p>
       {p.url && (
         <a

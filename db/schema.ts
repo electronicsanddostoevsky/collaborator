@@ -27,6 +27,8 @@ export const proposals = sqliteTable(
     createdAt: text('created_at').notNull(),
     reviewedAt: text('reviewed_at'),
     revision: integer('revision'),
+    artifactId: text('artifact_id'),
+    parentId: text('parent_id'),
   },
   (t) => [
     index('idx_proposals_task_status').on(t.taskId, t.status),
@@ -37,3 +39,19 @@ export const follows = sqliteTable('follows', {
   userId: text('user_id').primaryKey(),
   createdAt: text('created_at').notNull(),
 });
+
+export const artifacts = sqliteTable(
+  'artifacts',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    taskId: text('task_id').notNull(),
+    filename: text('filename').notNull(),
+    size: integer('size').notNull(),
+    sha256: text('sha256').notNull(),
+    objectKey: text('object_key').notNull(),
+    ready: integer('ready').notNull().default(0),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [index('idx_artifacts_user').on(t.userId)],
+);

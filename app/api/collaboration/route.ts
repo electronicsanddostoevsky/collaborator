@@ -35,7 +35,7 @@ async function snapshot(req: Request) {
   const result = await db.batch<Record<string, unknown>>([
     db.prepare('SELECT task_id,name,user_id,created_at FROM claims'),
     db.prepare(
-      'SELECT id,task_id,user_id,name,title,body,url,status,feedback,created_at,reviewed_at,revision FROM proposals ORDER BY created_at DESC LIMIT 100',
+      'SELECT p.id,p.task_id,p.user_id,p.name,p.title,p.body,p.url,p.status,p.feedback,p.created_at,p.reviewed_at,p.revision,p.artifact_id,p.parent_id,a.filename,a.size,a.sha256 FROM proposals p LEFT JOIN artifacts a ON a.id=p.artifact_id ORDER BY p.created_at DESC LIMIT 100',
     ),
     db.prepare('SELECT COUNT(*) AS count FROM follows'),
     db
@@ -137,6 +137,11 @@ export async function POST(req: Request) {
         !/^[0-9a-f-]{36}$/i.test(data.id)
       )
         return json({ error: 'Invalid submission.' }, 400);
+      if (
+        (data.artifactId != null && typeof data.artifactId !== 'string') ||
+        (data.parentId != null && typeof data.parentId !== 'string')
+      )
+        return json({ error: 'Invalid artifact or parent revision.' }, 400);
       const title = data.title.trim(),
         body = data.body.trim(),
         url = data.url.trim();
@@ -166,7 +171,7 @@ export async function POST(req: Request) {
       }
       const result = await db
         .prepare(
-          "INSERT OR IGNORE INTO proposals (id,task_id,user_id,name,title,body,url,status,feedback,created_at) SELECT ?,?,?,?,?,?,?,'pending','',? WHERE EXISTS (SELECT 1 FROM claims WHERE task_id=? AND user_id=?) AND NOT EXISTS (SELECT 1 FROM proposals WHERE task_id=? AND user_id=? AND status='pending')",
+          "INSERT OR IGNORE INTO proposals (id,task_id,user_id,name,title,body,url,status,feedback,created_at,artifact_id,parent_id) SELECT ?,?,?,?,?,?,?,'pending','',?,?,? WHERE EXISTS (SELECT 1 FROM claims WHERE task_id=? AND user_id=?) AND NOT EXISTS (SELECT 1 FROM proposals WHERE task_id=? AND user_id=? AND status='pending') AND (? IS NULL OR EXISTS (SELECT 1 FROM artifacts WHERE id=? AND user_id=? AND task_id=? AND ready=1)) AND (? IS NULL OR EXISTS (SELECT 1 FROM proposals WHERE id=? AND task_id=? AND status IN ('accepted','changes_requested')))",
         )
         .bind(
           data.id,
@@ -177,10 +182,19 @@ export async function POST(req: Request) {
           body,
           url,
           now,
+          data.artifactId || null,
+          data.parentId || null,
           data.taskId,
           user.id,
           data.taskId,
           user.id,
+          data.artifactId || null,
+          data.artifactId || null,
+          user.id,
+          data.taskId,
+          data.parentId || null,
+          data.parentId || null,
+          data.taskId,
         )
         .run();
       if (!result.meta.changes) {
@@ -192,7 +206,7 @@ export async function POST(req: Request) {
           return json(
             {
               error:
-                'Claim this task first, or wait for review of your pending contribution.',
+                'Claim this task and wait for any pending review. Attach only your own completed upload and an eligible earlier contribution.',
             },
             409,
           );

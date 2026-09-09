@@ -31,3 +31,10 @@ Persistent D1 claims, follows, immutable written submissions with optional HTTPS
 Maintainer rights are fail-closed until MAINTAINER_EMAIL is explicitly confirmed by the owner and set in hosted runtime configuration. No sample or first-visitor account receives authority. The site remains owner-private; inviting collaborators is a separate access change.
 
 Tests: `node tests/collaboration.test.mjs` uses a real in-memory SQLite database and the actual route code with only the database/runtime configuration adapter replaced. Covers claim races/ownership, duplicate submissions, input checks, denied review, and persistent follow state. `python tests/local_api.py` checks that local Sites rejects spoofed identity headers. Positive maintainer review requires a confirmed account before end-to-end verification.
+
+## Artifact preservation increment
+One optional uploaded file per contribution, up to 10 MiB, stored under a unique R2 object key with a SHA-256 fingerprint. Submitted artifact bytes have no overwrite endpoint. Supported extensions: txt, md, json, png, jpg, jpeg, pdf, zip, glb, stl, step, stp. Downloads require sign-in and use attachment/octet-stream responses; contents are neither scanned nor executed. Unsubmitted uploads are owner-only; linked submissions are downloadable by authenticated participants within this private Site's access boundary.
+
+A contributor has a 100 MiB pilot allowance across retained uploads. Failed storage writes are cleaned up; abandoned successful uploads currently retain their quota allocation. Automatic expiry and upload management are future work. Do not expose this private pilot broadly before moderation, cleanup, and final contribution terms are ready.
+
+Contributions may name an accepted or changes-requested contribution on the same task as their parent. Every submission remains a separate record. This is artifact provenance, not Git branch merging. A two-person signed-in pilot and browser interaction QA remain to be performed.

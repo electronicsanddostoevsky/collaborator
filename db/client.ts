@@ -11,3 +11,9 @@ export function maintainerEmail() {
     .trim()
     .toLowerCase();
 }
+
+export function bucket() {
+  const store = (env as unknown as { ARTIFACTS?: R2Bucket }).ARTIFACTS;
+  if (!store) throw new Error('Artifact storage is not configured');
+  return store;
+}
