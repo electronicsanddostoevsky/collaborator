@@ -47,6 +47,7 @@ export default function Participation({
       if (!r.ok) throw Error(d.error);
       if (action === 'withdraw') setNote('');
       await load();
+      window.dispatchEvent(new Event('mission-participation-changed'));
       setMessage(
         action === 'withdraw'
           ? 'Your interest has been withdrawn.'

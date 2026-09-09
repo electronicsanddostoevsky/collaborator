@@ -97,3 +97,27 @@ assert.equal((await missionCall(edit,'alice')).status,200);assert.equal((await m
 globalThis.__createdMission=slug=>{const m=sqlite.prepare('SELECT * FROM community_missions WHERE id=?').get(slug);return m?{...m,slug:m.id,roles:JSON.parse(m.roles)}:null};
 const req=new Request('https://local.test/api/participation',{method:'POST',headers:{Origin:'https://local.test','Content-Type':'application/json','oai-authenticated-user-id':'bob','oai-authenticated-user-email':'bob@example.test'},body:JSON.stringify({action:'interest',mission:newId,role:'Help with planting',note:''})});assert.equal((await part.POST(req)).status,200);
 console.log('PASS: mission validation, ownership, retry idempotency, fixed intent, preserved roles, edit conflicts, participation on a created mission.');
+
+sqlite.exec(readFileSync('drizzle/0004_typical_gressill.sql','utf8'));
+async function moduleFrom(source){return import('data:text/javascript;base64,'+Buffer.from(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText).toString('base64'))}
+const replaceDB=s=>s.replace(/import \{\s*database,\s*maintainerEmail\s*\} from '@\/db\/client';/,"const database=()=>globalThis.__testDB;const maintainerEmail=()=>globalThis.__testMaintainer||'';").replace(/import \{\s*database\s*\} from '@\/db\/client';/,'const database=()=>globalThis.__testDB;');
+globalThis.__access=(await moduleFrom(replaceDB(readFileSync('db/mission-access.ts','utf8')).replace(/import \{\s*getMission\s*\} from '@\/db\/missions';/,`const getMission=async slug=>{const m=globalThis.__createdMission(slug);return m?{...m,ownerId:m.owner_id}:globalThis.__missions.find(m=>m.slug===slug)};`))).missionAccess;
+const updates=await moduleFrom(replaceDB(readFileSync('app/api/updates/route.ts','utf8')).replace(/import \{\s*missionAccess\s*\} from '@\/db\/mission-access';/,'const missionAccess=globalThis.__access;'));
+const mine=await moduleFrom(replaceDB(readFileSync('app/api/my-missions/route.ts','utf8')).replace(/import \{\s*missions\s*\} from '@\/lib\/missions';/,'const missions=globalThis.__missions;'));
+async function updateCall(payload,actor,slug=newId,origin='https://local.test'){const headers={'Content-Type':'application/json',Origin:origin};if(actor){headers['oai-authenticated-user-id']=actor;headers['oai-authenticated-user-email']=actor+'@example.test'}const r=await updates[payload?'POST':'GET'](new Request('https://local.test/api/updates?mission='+slug,{method:payload?'POST':'GET',headers,body:payload?JSON.stringify(payload):undefined}));return {status:r.status,data:await r.json()}}
+const post={id:crypto.randomUUID(),mission:newId,kind:'progress',body:'The first garden bed is ready.'};
+assert.equal((await updateCall(post)).status,401);assert.equal((await updateCall(post,'bob')).status,403);assert.equal((await updateCall(post,'alice',newId,'https://other.test')).status,403);
+assert.equal((await updateCall(post,'alice')).status,201);assert.equal((await updateCall(post,'alice')).status,200);
+const reply={id:crypto.randomUUID(),mission:newId,kind:'reply',parentId:post.id,body:'I can help with watering.'};
+assert.equal((await updateCall(reply,'outsider')).status,403);assert.equal((await updateCall(reply,'bob')).status,201);
+assert.equal((await updateCall({...reply,id:crypto.randomUUID(),parentId:reply.id},'bob')).status,400);
+assert.equal((await updateCall({...reply,id:crypto.randomUUID(),mission:'beach-cleanup'},'reviewer')).status,400);
+assert.equal((await updateCall(null,'bob')).data.posts.length,2);assert.equal((await updateCall(null,'bob')).data.canPost,false);
+assert.equal((await updateCall({...post,id:crypto.randomUUID(),mission:'beach-cleanup'},'reviewer')).status,201);
+async function myCall(actor){const headers=actor?{'oai-authenticated-user-id':actor,'oai-authenticated-user-email':actor+'@example.test'}:{};const r=await mine.GET(new Request('https://local.test/api/my-missions',{headers}));return {status:r.status,data:await r.json()}}
+assert.equal((await myCall()).status,401);assert.equal((await myCall('outsider')).data.missions.length,0);
+const aliceMine=(await myCall('alice')).data.missions.find(m=>m.id===newId);assert.equal(aliceMine.created,true);assert.equal(aliceMine.latest.body,post.body);assert.equal('owner_id' in aliceMine,false);
+assert.equal((await myCall('bob')).data.missions.find(m=>m.id===newId).joined,true);
+for(let i=0;i<29;i++)assert.equal((await updateCall({...post,id:crypto.randomUUID()},'alice')).status,201);
+assert.equal((await updateCall({...post,id:crypto.randomUUID()},'alice')).status,429);
+console.log('PASS: update ownership, joined replies, origin checks, duplicate retries, parent scope, daily cap, personal mission isolation and latest update.');

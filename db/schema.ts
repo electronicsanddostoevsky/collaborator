@@ -92,3 +92,18 @@ export const communityMissions = sqliteTable(
     index('idx_missions_created').on(t.createdAt),
   ],
 );
+
+export const missionPosts = sqliteTable(
+  'mission_posts',
+  {
+    id: text('id').primaryKey(),
+    mission: text('mission').notNull(),
+    userId: text('user_id').notNull(),
+    author: text('author').notNull(),
+    kind: text('kind').notNull(),
+    body: text('body').notNull(),
+    parentId: text('parent_id'),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [index('idx_posts_mission_created').on(t.mission, t.createdAt)],
+);

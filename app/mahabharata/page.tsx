@@ -1,4 +1,5 @@
 'use client';
+import Updates from '@/components/collaboration/updates';
 import { useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 import {
@@ -161,6 +162,7 @@ export default function Home() {
           <span className="alpha">EARLY PREVIEW</span>
         </a>
         <nav aria-label="Main navigation">
+          <a href="/my-missions">My missions</a>
           <a href="/">
             <Compass size={17} />
             Explore missions
@@ -241,8 +243,12 @@ export default function Home() {
                   Ways to help <span className="count">3</span>
                 </TabsTrigger>
                 <TabsTrigger value="artifacts">What exists</TabsTrigger>
+                <TabsTrigger value="updates">Updates</TabsTrigger>
                 <TabsTrigger value="reviews">Contributions</TabsTrigger>
               </TabsList>
+              <TabsContent value="updates">
+                <Updates mission="mahabharata" />
+              </TabsContent>
               <TabsContent value="overview">
                 <div className="section-heading">
                   <h2>A world worth building together.</h2>

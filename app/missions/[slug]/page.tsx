@@ -1,3 +1,4 @@
+import Updates from '@/components/collaboration/updates';
 import { getMission } from '@/db/missions';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
@@ -21,6 +22,9 @@ export default async function Mission({
       <header className="topbar">
         <a className="brand" href="/">
           collaborator ↗
+        </a>
+        <a className="text-button" href="/my-missions">
+          My missions
         </a>
         <a className="text-button" href="/">
           Explore missions
@@ -49,6 +53,7 @@ export default async function Mission({
             <p className="intro">{m.outcome}</p>
             <p className="mission-caveat">{m.note}</p>
             <Participation mission={m.slug} roles={m.roles} />
+            <Updates mission={m.slug} />
           </section>
           <aside>
             <div className="aside-card">
