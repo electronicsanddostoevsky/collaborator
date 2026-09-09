@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { categories } from '@/lib/mission-input';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -30,7 +31,43 @@ const cards = [
 export default function Feed() {
   const [query, setQuery] = useState(''),
     [filter, setFilter] = useState('All missions');
-  const results = cards.filter(
+  const [created, setCreated] = useState<typeof cards>([]),
+    [loadError, setLoadError] = useState('');
+  useEffect(() => {
+    fetch('/api/missions', { cache: 'no-store' })
+      .then(async (r) => {
+        const d = (await r.json()) as {
+          error: string;
+          missions: {
+            id: string;
+            title: string;
+            category: string;
+            description: string;
+            intent: string;
+            revision: number;
+          }[];
+        };
+        if (!r.ok) throw Error(d.error);
+        setCreated(
+          d.missions.map((m) => ({
+            slug: m.id,
+            href: '/missions/' + m.id,
+            title: m.title,
+            category: m.category,
+            description: m.description,
+            tag:
+              (m.intent === 'commercial'
+                ? 'Commercial intent'
+                : 'Community mission') +
+              ' · Revision ' +
+              m.revision,
+            icon: Compass,
+          })),
+        );
+      })
+      .catch((e) => setLoadError(e.message));
+  }, []);
+  const results = [...created, ...cards].filter(
     (c) =>
       (filter === 'All missions' || c.category === filter) &&
       (c.title + ' ' + c.description + ' ' + c.category)
@@ -43,7 +80,9 @@ export default function Feed() {
         <a href="/" className="brand">
           <span className="brand-symbol">c↗</span>collaborator
         </a>
-        <span className="preview-indicator">Private pilot</span>
+        <a className="primary" href="/missions/new">
+          Start a mission <ArrowUpRight size={16} />
+        </a>
       </header>
       <main>
         <div className="feed-heading">
@@ -70,12 +109,7 @@ export default function Feed() {
             />
           </label>
           <div className="filter-buttons" aria-label="Mission categories">
-            {[
-              'All missions',
-              'Creative worlds',
-              'Local action',
-              'Playful invention',
-            ].map((f) => (
+            {['All missions', ...categories].map((f) => (
               <button
                 key={f}
                 aria-pressed={filter === f}
@@ -92,6 +126,11 @@ export default function Feed() {
           </h2>
           <span className="small-label">{results.length} TO EXPLORE</span>
         </div>
+        {loadError && (
+          <p className="error-note" role="alert">
+            {loadError} The example missions are still available.
+          </p>
+        )}
         <div className="mission-grid">
           {results.map((c, i) => (
             <a
@@ -155,7 +194,7 @@ export default function Feed() {
       </main>
       <footer>
         <span>Help make it exist.</span>
-        <span>Three starting missions · More ways to act</span>
+        <span>Shared purpose · Small contributions · Real progress</span>
       </footer>
     </>
   );

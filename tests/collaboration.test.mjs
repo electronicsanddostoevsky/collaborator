@@ -68,7 +68,7 @@ console.log('PASS: upload ownership, size/type limits, immutable download bytes,
 sqlite.exec(readFileSync('drizzle/0002_great_aqueduct.sql','utf8'));
 const missionSource=ts.transpileModule(readFileSync('lib/missions.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText;
 globalThis.__missions=(await import('data:text/javascript;base64,'+Buffer.from(missionSource).toString('base64'))).missions;
-const participationSource=readFileSync('app/api/participation/route.ts','utf8').replace(/import \{\s*database\s*\} from '@\/db\/client';/,'const database=()=>globalThis.__testDB;').replace(/import \{\s*missions\s*\} from '@\/lib\/missions';/,'const missions=globalThis.__missions;');
+const participationSource=readFileSync('app/api/participation/route.ts','utf8').replace(/import \{\s*database\s*\} from '@\/db\/client';/,'const database=()=>globalThis.__testDB;').replace(/import \{\s*getMission\s*\} from '@\/db\/missions';/, 'const getMission=async slug=>globalThis.__missions.find(m=>m.slug===slug)||globalThis.__createdMission?.(slug);');
 const part=await import('data:text/javascript;base64,'+Buffer.from(ts.transpileModule(participationSource,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText).toString('base64'));
 // D1 all() adapter for aggregate queries in the participation endpoint.
 Statement.prototype.all=async function(){return {results:sqlite.prepare(this.sql).all(...this.args)}};
@@ -80,3 +80,20 @@ await participate({...interest,role:'Bring refreshments'},'alice');assert.equal(
 await participate({action:'withdraw',mission:'beach-cleanup'},'bob');assert.equal((await participate(null,'alice')).data.counts[0].count,1);
 await participate({action:'withdraw',mission:'beach-cleanup'},'alice');assert.equal((await participate(null,'alice')).data.counts.length,0);
 console.log('PASS: participation sign-in, role validation, idempotent interest, updates, private notes, ownership, withdrawal.');
+
+sqlite.exec(readFileSync('drizzle/0003_deep_galactus.sql','utf8'));
+const inputMod=await import('data:text/javascript;base64,'+Buffer.from(ts.transpileModule(readFileSync('lib/mission-input.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText).toString('base64'));globalThis.__validateMission=inputMod.validateMission;
+const missionApiSource=readFileSync('app/api/missions/route.ts','utf8').replace(/import \{\s*database\s*\} from '@\/db\/client';/,'const database=()=>globalThis.__testDB;').replace(/import \{\s*validateMission\s*\} from '@\/lib\/mission-input';/,'const validateMission=globalThis.__validateMission;');
+const missionApi=await import('data:text/javascript;base64,'+Buffer.from(ts.transpileModule(missionApiSource,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText).toString('base64'));
+async function missionCall(payload,actor,id){const headers={Origin:'https://local.test','Content-Type':'application/json'};if(actor){headers['oai-authenticated-user-id']=actor;headers['oai-authenticated-user-email']=actor+'@example.test'}const r=await missionApi[payload?'POST':'GET'](new Request('https://local.test/api/missions'+(id?'?id='+id:''),{method:payload?'POST':'GET',headers,body:payload?JSON.stringify(payload):undefined}));return {status:r.status,data:await r.json()}}
+const mission={title:'Restore the community garden',category:'Local action',description:'Bring neighbors together to restore a shared growing space.',outcome:'Prepare one garden bed and agree on a volunteer care schedule.',roles:['Help with planting'],steps:['Find a small group'],intent:'community'};const newId=crypto.randomUUID(),create={action:'create',id:newId,mission};
+assert.equal((await missionCall(create)).status,401);assert.equal((await missionCall({...create,mission:{...mission,title:'x'}},'alice')).status,400);
+assert.equal((await missionCall(create,'alice')).status,201);assert.equal((await missionCall(create,'alice')).status,200);assert.equal((await missionCall(create,'bob')).status,409);
+assert.equal((await missionCall(null,'alice',newId)).data.canEdit,true);assert.equal((await missionCall(null,'bob',newId)).data.canEdit,false);
+const edit={action:'edit',id:newId,revision:1,mission:{...mission,title:'Restore our community garden'}};
+assert.equal((await missionCall(edit,'bob')).status,403);assert.equal((await missionCall({...edit,mission:{...mission,intent:'commercial'}},'alice')).status,409);
+assert.equal((await missionCall({...edit,mission:{...mission,roles:['Changed role']}},'alice')).status,409);
+assert.equal((await missionCall(edit,'alice')).status,200);assert.equal((await missionCall(edit,'alice')).status,409);assert.equal((await missionCall(null,'alice',newId)).data.mission.revision,2);
+globalThis.__createdMission=slug=>{const m=sqlite.prepare('SELECT * FROM community_missions WHERE id=?').get(slug);return m?{...m,slug:m.id,roles:JSON.parse(m.roles)}:null};
+const req=new Request('https://local.test/api/participation',{method:'POST',headers:{Origin:'https://local.test','Content-Type':'application/json','oai-authenticated-user-id':'bob','oai-authenticated-user-email':'bob@example.test'},body:JSON.stringify({action:'interest',mission:newId,role:'Help with planting',note:''})});assert.equal((await part.POST(req)).status,200);
+console.log('PASS: mission validation, ownership, retry idempotency, fixed intent, preserved roles, edit conflicts, participation on a created mission.');

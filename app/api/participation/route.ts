@@ -1,10 +1,10 @@
 import { database } from '@/db/client';
-import { missions } from '@/lib/missions';
+import { getMission } from '@/db/missions';
 const json = (body: unknown, status = 200) =>
   Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 export async function GET(req: Request) {
   const mission = new URL(req.url).searchParams.get('mission');
-  if (!missions.some((m) => m.slug === mission))
+  if (!mission || !(await getMission(mission)))
     return json({ error: 'Unknown mission.' }, 404);
   try {
     const db = database(),
@@ -45,7 +45,8 @@ export async function POST(req: Request) {
     if (raw.length > 3000)
       return json({ error: 'Please keep your note short.' }, 413);
     const body = JSON.parse(raw);
-    const m = missions.find((m) => m.slug === body.mission);
+    const m =
+      typeof body?.mission === 'string' ? await getMission(body.mission) : null;
     if (!m) return json({ error: 'Unknown mission.' }, 400);
     const db = database();
     if (body.action === 'withdraw') {

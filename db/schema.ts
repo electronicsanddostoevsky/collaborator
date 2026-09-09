@@ -70,3 +70,25 @@ export const participation = sqliteTable(
     uniqueIndex('idx_participation_mission_user').on(t.mission, t.userId),
   ],
 );
+
+export const communityMissions = sqliteTable(
+  'community_missions',
+  {
+    id: text('id').primaryKey(),
+    ownerId: text('owner_id').notNull(),
+    title: text('title').notNull(),
+    category: text('category').notNull(),
+    description: text('description').notNull(),
+    outcome: text('outcome').notNull(),
+    roles: text('roles').notNull(),
+    steps: text('steps').notNull(),
+    intent: text('intent').notNull(),
+    revision: integer('revision').notNull().default(1),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [
+    index('idx_missions_owner').on(t.ownerId),
+    index('idx_missions_created').on(t.createdAt),
+  ],
+);

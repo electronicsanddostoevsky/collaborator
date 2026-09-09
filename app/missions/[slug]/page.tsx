@@ -1,17 +1,21 @@
-import { missions } from '@/lib/missions';
+import { getMission } from '@/db/missions';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import Participation from '@/components/collaboration/participation';
-export function generateStaticParams() {
-  return missions.map((m) => ({ slug: m.slug }));
-}
+export const dynamic = 'force-dynamic';
 export default async function Mission({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const m = missions.find((x) => x.slug === slug);
+  const m = await getMission(slug);
   if (!m) notFound();
+  const h = await headers();
+  const canEdit =
+    !!m.ownerId &&
+    h.get('oai-authenticated-user-id') === m.ownerId &&
+    !!h.get('oai-authenticated-user-email');
   return (
     <>
       <header className="topbar">
@@ -26,6 +30,17 @@ export default async function Mission({
         <span className="eyebrow">{m.category.toUpperCase()}</span>
         <h1>{m.title}</h1>
         <p className="intro">{m.description}</p>
+        <p className="workspace-status">
+          {m.intent === 'commercial'
+            ? 'Commercial intent'
+            : 'Community · Noncommercial intent'}{' '}
+          · Revision {m.revision}
+        </p>
+        {canEdit && (
+          <a className="secondary" href={'/missions/new?edit=' + m.slug}>
+            Edit mission
+          </a>
+        )}
         <div className="mission-layout">
           <section>
             <div className="section-heading">
