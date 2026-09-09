@@ -1,4 +1,5 @@
 import Updates from '@/components/collaboration/updates';
+import Actions from '@/components/collaboration/actions';
 import { getMission } from '@/db/missions';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
@@ -40,6 +41,9 @@ export default async function Mission({
             : 'Community · Noncommercial intent'}{' '}
           · Revision {m.revision}
         </p>
+        <a className="text-button" href={'/missions/' + m.slug + '/history'}>
+          View mission history →
+        </a>
         {canEdit && (
           <a className="secondary" href={'/missions/new?edit=' + m.slug}>
             Edit mission
@@ -52,6 +56,7 @@ export default async function Mission({
             </div>
             <p className="intro">{m.outcome}</p>
             <p className="mission-caveat">{m.note}</p>
+            <Actions mission={m.slug} />
             <Participation mission={m.slug} roles={m.roles} />
             <Updates mission={m.slug} />
           </section>

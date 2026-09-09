@@ -20,6 +20,7 @@ const blank: MissionInput = {
 };
 export default function MissionEditor() {
   const [mission, setMission] = useState(blank),
+    [forkPolicy, setForkPolicy] = useState('allowed'),
     [roles, setRoles] = useState(''),
     [steps, setSteps] = useState(''),
     [editId, setEditId] = useState<string | null>(null),
@@ -71,6 +72,7 @@ export default function MissionEditor() {
           action: editId ? 'edit' : 'create',
           id: editId || id,
           revision,
+          forkPolicy,
           mission: {
             ...mission,
             roles: roles
@@ -236,6 +238,28 @@ export default function MissionEditor() {
               Participation records interest, not a booking or financial
               commitment. No money is collected.
             </p>
+            {!editId && (
+              <fieldset disabled={busy}>
+                <legend>Can people fork this mission here?</legend>
+                <RadioGroup
+                  value={forkPolicy}
+                  onValueChange={(v) => setForkPolicy(String(v))}
+                >
+                  <label className="role-option">
+                    <RadioGroupItem value="allowed" />
+                    Allow forks that preserve history and declared intent
+                  </label>
+                  <label className="role-option">
+                    <RadioGroupItem value="closed" />
+                    Disable platform forks
+                  </label>
+                </RadioGroup>
+                <p className="field-note">
+                  This choice is fixed at creation. A fork starts an independent
+                  mission from a recorded version.
+                </p>
+              </fieldset>
+            )}
             <button className="primary" disabled={busy}>
               {busy ? 'Saving…' : editId ? 'Save revision' : 'Create mission'}
             </button>

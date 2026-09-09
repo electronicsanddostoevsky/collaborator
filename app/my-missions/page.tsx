@@ -9,6 +9,8 @@ type Mission = {
   created: boolean;
   joined: boolean;
   following: boolean;
+  activeActions: number;
+  pendingActions: number;
   latest: { body: string; created_at: string } | null;
 };
 export default function MyMissions() {
@@ -98,6 +100,18 @@ export default function MyMissions() {
                 </strong>
               </div>
               {m.role && <p>{m.role}</p>}
+              {!!m.activeActions && (
+                <p className="action-reminder">
+                  {m.activeActions} action{m.activeActions === 1 ? '' : 's'}{' '}
+                  you’re taking forward
+                </p>
+              )}
+              {!!m.pendingActions && (
+                <p className="action-reminder">
+                  {m.pendingActions} result{m.pendingActions === 1 ? '' : 's'}{' '}
+                  waiting for your review
+                </p>
+              )}
               <div className="latest-update">
                 <span className="small-label">LATEST UPDATE</span>
                 <p>

@@ -9,11 +9,13 @@ export async function GET(req: Request) {
     return json({ error: 'Sign in to see your missions.' }, 401);
   try {
     const db = database();
+    const maintainer =
+      !!maintainerEmail() && email.toLowerCase() === maintainerEmail();
     const rows = await db
       .prepare(
-        'SELECT m.id,m.title,m.category,m.description,m.owner_id,p.role FROM community_missions m LEFT JOIN participation p ON p.mission=m.id AND p.user_id=? WHERE m.owner_id=? OR p.user_id=? ORDER BY m.updated_at DESC LIMIT 200',
+        'SELECT m.id,m.title,m.category,m.description,m.owner_id,p.role,EXISTS(SELECT 1 FROM mission_actions a WHERE a.mission=m.id AND a.assignee_id=?) AS action_joined FROM community_missions m LEFT JOIN participation p ON p.mission=m.id AND p.user_id=? WHERE m.owner_id=? OR p.user_id=? OR EXISTS(SELECT 1 FROM mission_actions a WHERE a.mission=m.id AND a.assignee_id=?) ORDER BY m.updated_at DESC LIMIT 200',
       )
-      .bind(user, user, user)
+      .bind(user, user, user, user, user)
       .all<{
         id: string;
         title: string;
@@ -21,13 +23,14 @@ export async function GET(req: Request) {
         description: string;
         owner_id: string;
         role: string | null;
+        action_joined: number;
       }>();
-    const items = rows.results.map(({ owner_id, ...m }) => ({
+    const items = rows.results.map(({ owner_id, action_joined, ...m }) => ({
       ...m,
       slug: m.id,
       href: '/missions/' + m.id,
       created: owner_id === user,
-      joined: !!m.role,
+      joined: !!m.role || !!action_joined,
       following: false,
     }));
     for (const m of missions) {
@@ -35,7 +38,13 @@ export async function GET(req: Request) {
         .prepare('SELECT role FROM participation WHERE mission=? AND user_id=?')
         .bind(m.slug, user)
         .first<{ role: string }>();
-      if (interest)
+      const actionJoined = !!(await db
+        .prepare(
+          'SELECT id FROM mission_actions WHERE mission=? AND assignee_id=? LIMIT 1',
+        )
+        .bind(m.slug, user)
+        .first());
+      if (interest || actionJoined || maintainer)
         items.push({
           id: m.slug,
           slug: m.slug,
@@ -43,9 +52,13 @@ export async function GET(req: Request) {
           title: m.title,
           category: m.category,
           description: m.description,
-          role: interest.role,
+          role:
+            interest?.role ||
+            (maintainer
+              ? 'Mission maintainer'
+              : 'Contributing through an action'),
           created: false,
-          joined: true,
+          joined: !!interest || actionJoined,
           following: false,
         });
     }
@@ -55,8 +68,6 @@ export async function GET(req: Request) {
       )
       .bind(user, user, user)
       .first<{ following: number; claimed: number; contributed: number }>();
-    const maintainer =
-      !!maintainerEmail() && email.toLowerCase() === maintainerEmail();
     if (
       own &&
       (own.following || own.claimed || own.contributed || maintainer)
@@ -101,9 +112,21 @@ export async function GET(req: Request) {
         }>();
       latestRows.results.push(...rows.results);
     }
+    const actionCounts = await db
+      .prepare(
+        "SELECT mission,SUM(CASE WHEN assignee_id=? AND status IN ('doing','review') THEN 1 ELSE 0 END) AS active,SUM(CASE WHEN status='review' THEN 1 ELSE 0 END) AS reviews FROM mission_actions GROUP BY mission",
+      )
+      .bind(user)
+      .all<{ mission: string; active: number; reviews: number }>();
     const enriched = items.map((m) => ({
       ...m,
       latest: latestRows.results.find((p) => p.mission === m.slug) || null,
+      activeActions:
+        actionCounts.results.find((a) => a.mission === m.slug)?.active || 0,
+      pendingActions:
+        m.created || (maintainer && missions.some((s) => s.slug === m.slug))
+          ? actionCounts.results.find((a) => a.mission === m.slug)?.reviews || 0
+          : 0,
     }));
     const pending = maintainer
       ? await db

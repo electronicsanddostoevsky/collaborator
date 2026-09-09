@@ -83,6 +83,9 @@ export default function Feed() {
         <a className="text-button" href="/my-missions">
           My missions
         </a>
+        <a className="text-button" href="/platform-history">
+          Platform history
+        </a>
         <a className="primary" href="/missions/new">
           Start a mission <ArrowUpRight size={16} />
         </a>

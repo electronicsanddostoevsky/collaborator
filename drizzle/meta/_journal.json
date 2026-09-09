@@ -36,6 +36,20 @@
       "when": 1788954970354,
       "tag": "0004_typical_gressill",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1788956039597,
+      "tag": "0005_narrow_patch",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1788956779729,
+      "tag": "0006_happy_smiling_tiger",
+      "breakpoints": true
     }
   ]
 }

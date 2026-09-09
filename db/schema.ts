@@ -107,3 +107,74 @@ export const missionPosts = sqliteTable(
   },
   (t) => [index('idx_posts_mission_created').on(t.mission, t.createdAt)],
 );
+
+export const missionActions = sqliteTable(
+  'mission_actions',
+  {
+    id: text('id').primaryKey(),
+    mission: text('mission').notNull(),
+    creatorId: text('creator_id').notNull(),
+    title: text('title').notNull(),
+    brief: text('brief').notNull(),
+    doneWhen: text('done_when').notNull(),
+    kind: text('kind').notNull(),
+    effort: text('effort').notNull(),
+    status: text('status').notNull().default('open'),
+    assigneeId: text('assignee_id'),
+    assigneeName: text('assignee_name'),
+    revision: integer('revision').notNull().default(1),
+    lastEvent: text('last_event').notNull(),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [
+    index('idx_actions_mission_status').on(t.mission, t.status),
+    index('idx_actions_assignee').on(t.assigneeId),
+  ],
+);
+export const actionEvents = sqliteTable(
+  'action_events',
+  {
+    id: text('id').primaryKey(),
+    actionId: text('action_id').notNull(),
+    userId: text('user_id').notNull(),
+    author: text('author').notNull(),
+    kind: text('kind').notNull(),
+    body: text('body').notNull(),
+    url: text('url').notNull(),
+    revision: integer('revision').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [uniqueIndex('idx_action_events_revision').on(t.actionId, t.revision)],
+);
+export const missionRevisions = sqliteTable(
+  'mission_revisions',
+  {
+    id: text('id').primaryKey(),
+    mission: text('mission').notNull(),
+    revision: integer('revision').notNull(),
+    author: text('author').notNull(),
+    message: text('message').notNull(),
+    snapshot: text('snapshot').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [
+    uniqueIndex('idx_mission_revisions_number').on(t.mission, t.revision),
+  ],
+);
+export const missionRepositories = sqliteTable('mission_repositories', {
+  mission: text('mission').primaryKey(),
+  head: text('head').notNull(),
+  forkPolicy: text('fork_policy').notNull(),
+  upstream: text('upstream'),
+  forkBase: text('fork_base'),
+});
+export const gitCommits = sqliteTable('git_commits', {
+  oid: text('oid').primaryKey(),
+  parent: text('parent'),
+  mission: text('mission').notNull(),
+  author: text('author').notNull(),
+  message: text('message').notNull(),
+  createdAt: text('created_at').notNull(),
+  depth: integer('depth').notNull(),
+});

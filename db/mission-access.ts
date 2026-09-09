@@ -29,6 +29,13 @@ export async function missionAccess(req: Request, slug: string) {
             )
             .bind(slug, id)
             .first());
+    if (!joined)
+      joined = !!(await database()
+        .prepare(
+          'SELECT id FROM mission_actions WHERE mission=? AND assignee_id=? LIMIT 1',
+        )
+        .bind(slug, id)
+        .first());
   }
   let author =
     req.headers.get('oai-authenticated-user-full-name') || 'Contributor';
