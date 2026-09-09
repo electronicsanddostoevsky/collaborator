@@ -17,6 +17,16 @@ export type Commit = {
   created_at: string;
   depth: number;
 };
+export async function readCommit(oid: string) {
+  const object = await bucket().get('mission-git/' + oid);
+  if (!object) throw Error('Missing Git object');
+  const data = JSON.parse(await new Response(object.body).text()) as {
+    blob: string;
+    commit: string;
+    files?: Record<string, string>;
+  };
+  return { ...data, files: { ...data.files, 'mission.json': data.blob } };
+}
 export async function missionDefinition(mission: string) {
   if (mission === 'mahabharata')
     return {
@@ -40,6 +50,7 @@ export async function prepareCommit(
   author: string,
   message: string,
   stamp: string,
+  files?: Record<string, string>,
 ) {
   const prior = parent
     ? await database()
@@ -50,10 +61,31 @@ export async function prepareCommit(
   if (parent && !prior) throw Error('Missing parent commit');
   if ((prior?.depth || 0) >= 200)
     throw Error('This pilot supports 200 commits in a mission ancestry');
-  const object = await createObjects(snapshot, parent, author, message, stamp);
+  const inherited = files ?? (parent ? (await readCommit(parent)).files : {});
+  const object = await createObjects(
+    snapshot,
+    parent,
+    author,
+    message,
+    stamp,
+    inherited,
+  );
+  if (
+    Object.values(object.files).reduce(
+      (sum, text) => sum + new TextEncoder().encode(text).length,
+      0,
+    ) > 65536
+  )
+    throw Error(
+      'The workspace is over 64 KB. Shorten or remove a working file before adding more content.',
+    );
   await bucket().put(
     'mission-git/' + object.oid,
-    JSON.stringify({ blob: object.blob, commit: object.commit }),
+    JSON.stringify({
+      blob: object.blob,
+      commit: object.commit,
+      files: object.files,
+    }),
   );
   const row: Commit = {
     oid: object.oid,

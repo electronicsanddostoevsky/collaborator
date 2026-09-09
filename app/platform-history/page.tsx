@@ -53,10 +53,10 @@ export default function PlatformHistory() {
         <div className="aside-card">
           <h2>Real Git histories, with more to come</h2>
           <p className="body-copy">
-            Each mission now has Git history for its definition. Download a
-            repository or fork from a recorded version while preserving its
-            ancestry. Full code and design workspaces, remote synchronization,
-            and reviewed merges are the next layer.
+            Each mission now has Git history for its definition and small
+            working text files. Download a repository or fork from a recorded
+            version while preserving files and ancestry. Large assets, remote
+            synchronization, and reviewed merges are the next layer.
           </p>
         </div>
         <a className="primary" href="/">

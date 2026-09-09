@@ -191,3 +191,9 @@ export const missionFollows = sqliteTable(
     index('idx_mission_follows_user').on(t.userId),
   ],
 );
+export const workspaceWrites = sqliteTable('workspace_writes', {
+  id: text('id').primaryKey(),
+  mission: text('mission').notNull(),
+  userId: text('user_id').notNull(),
+  head: text('head').notNull(),
+});

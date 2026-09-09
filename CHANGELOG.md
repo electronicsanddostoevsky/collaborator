@@ -41,3 +41,11 @@ The Git commit history is the authoritative source history. These release notes 
 - Followers can join mission conversations; role commitments remain independent.
 - My missions includes followed missions and adds Created, Following, and Participating filters plus explicit refresh.
 - Preserve the existing Mahabharata follow state and account isolation.
+
+## 2026-09-09 — Versioned working files
+
+- Add a small text workspace to every mission: notes, code, JSON, and text-based design such as OpenSCAD.
+- Creator/maintainer file edits produce real Git commits. Forks inherit working files; later brief edits retain them.
+- Add stale-head protection, repeat-safe writes, safe portable filenames, size limits, and reversible file removal.
+- Preserve compatibility with the earlier single-file Git objects and verify multi-file clones and historical file recovery with native Git.
+- Keep files inert in the web interface. Binary workspaces, execution, remote synchronization, and reviewed merging remain future integrations.

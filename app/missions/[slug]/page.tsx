@@ -46,6 +46,9 @@ export default async function Mission({
         <a className="text-button" href={'/missions/' + m.slug + '/history'}>
           View mission history →
         </a>
+        <a className="text-button" href={'/missions/' + m.slug + '/workspace'}>
+          Working files →
+        </a>
         {canEdit && (
           <a className="secondary" href={'/missions/new?edit=' + m.slug}>
             Edit mission

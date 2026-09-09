@@ -42,3 +42,8 @@ Costs to measure during that pilot are runner time, model usage, storage/version
 - [Git bundle format](https://git-scm.com/docs/gitformat-bundle)
 
 These explain the storage mechanisms. The architecture above is our proposed application design, not functionality already supplied by those tools.
+
+## Working-file layer now implemented
+The repository layer now includes small working text files alongside mission.json. Creators/maintainers can add, replace, or remove flat files with a commit description. All mission users can read the text. A fork inherits the source working files and ancestry; role memberships, conversations, action assignments, and separately uploaded binary artifacts do not carry over. The earlier definition-only statements describe the initial layer; this extends it without rewriting those earlier commits.
+
+Safe portable names and text/size limits constrain the first editor (12 working files, 16 KB each, 64 KB total with the brief). Git objects retain 100644 file modes: no symlinks or executable file modes. Nothing in a working file is executed by the site. Workspace edits compare the expected head and log an idempotent request in the same transaction as the ref update. Updating a mission brief inherits the current working files. Native Git tests recover a removed file from the previous commit and verify that deleting it in a fork leaves the upstream file intact.

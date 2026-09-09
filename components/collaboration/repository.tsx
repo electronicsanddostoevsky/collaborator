@@ -58,8 +58,8 @@ export default function Repository({ mission }: { mission: string }) {
         <>
           <p className="body-copy">
             Mission brief versions have real commits and shared ancestry. This
-            first workspace versions the mission definition; conversations and
-            action results appear in the activity log below.
+            workspace versions the mission definition and working text files;
+            conversations and action results appear in the activity log below.
           </p>
           <div className="repository-head">
             <span>main</span>
@@ -82,6 +82,9 @@ export default function Repository({ mission }: { mission: string }) {
             </p>
           )}
           <div className="action-buttons">
+            <a className="primary" href={'/missions/' + mission + '/workspace'}>
+              Open working files →
+            </a>
             <a
               className="secondary"
               href={
@@ -120,10 +123,11 @@ export default function Repository({ mission }: { mission: string }) {
                   Fork this mission <span>↗</span>
                 </summary>
                 <p className="body-copy">
-                  Start your own direction from this exact version. The brief
-                  and Git ancestry carry over. People, action assignments,
-                  conversations, and uploaded files stay with the original
-                  mission. Commercial intent and fork permission are preserved.
+                  Start your own direction from this exact version. The brief,
+                  working text files, and Git ancestry carry over. People,
+                  action assignments, conversations, and uploaded files stay
+                  with the original mission. Commercial intent and fork
+                  permission are preserved.
                 </p>
                 <form
                   className="update-composer"

@@ -164,6 +164,7 @@ export default function Home() {
         <nav aria-label="Main navigation">
           <a href="/my-missions">My missions</a>
           <a href="/missions/mahabharata/history">Mission history</a>
+          <a href="/missions/mahabharata/workspace">Working files</a>
           <a href="/">
             <Compass size={17} />
             Explore missions

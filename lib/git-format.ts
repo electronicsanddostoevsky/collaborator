@@ -1,5 +1,5 @@
-// Small, deliberately write-only Git object/bundle encoder for mission.json.
-// No Git protocol server, shell execution, user-controlled paths, or pack parsing.
+// Small, deliberately write-only Git object/bundle encoder for a flat text workspace.
+// No Git protocol server, shell execution, or pack parsing. Filenames are validated at write boundaries.
 const encoder = new TextEncoder();
 export const bytes = (s: string) => encoder.encode(s);
 export function concat(parts: Uint8Array[]) {
@@ -28,16 +28,27 @@ export async function objectId(type: string, data: Uint8Array) {
 export function treeBytes(blobId: string) {
   return concat([bytes('100644 mission.json\0'), unhex(blobId)]);
 }
+async function fileTree(files: Record<string, string>) {
+  const entries: Uint8Array[] = [];
+  for (const path of Object.keys(files).sort()) {
+    entries.push(
+      bytes('100644 ' + path + '\0'),
+      unhex(await objectId('blob', bytes(files[path]))),
+    );
+  }
+  return concat(entries);
+}
 export async function createObjects(
   snapshot: unknown,
   parent: string | null,
   author: string,
   message: string,
   stamp: string,
+  files: Record<string, string> = {},
 ) {
   const blob = JSON.stringify(snapshot, null, 2) + '\n',
-    blobId = await objectId('blob', bytes(blob)),
-    tree = treeBytes(blobId),
+    allFiles = { ...files, 'mission.json': blob },
+    tree = await fileTree(allFiles),
     treeId = await objectId('tree', tree);
   const identity =
     (author.replace(/[\x00-\x1f<>]/g, ' ').trim() || 'Contributor') +
@@ -56,7 +67,12 @@ export async function createObjects(
     '\n\n' +
     message.replace(/[\x00\r]/g, '') +
     '\n';
-  return { oid: await objectId('commit', bytes(commit)), blob, commit };
+  return {
+    oid: await objectId('commit', bytes(commit)),
+    blob,
+    commit,
+    files: allFiles,
+  };
 }
 async function deflate(data: Uint8Array) {
   const stream = new Blob([new Uint8Array(data)])
@@ -66,13 +82,17 @@ async function deflate(data: Uint8Array) {
 }
 export async function gitBundle(
   head: string,
-  records: { oid: string; blob: string; commit: string }[],
+  records: {
+    oid: string;
+    blob: string;
+    commit: string;
+    files?: Record<string, string>;
+  }[],
 ) {
   const objects = new Map<string, { type: number; data: Uint8Array }>();
   for (const record of records) {
-    const blob = bytes(record.blob),
-      blobId = await objectId('blob', blob),
-      tree = treeBytes(blobId),
+    const files = { ...record.files, 'mission.json': record.blob },
+      tree = await fileTree(files),
       treeId = await objectId('tree', tree),
       commit = bytes(record.commit);
     if (
@@ -80,7 +100,10 @@ export async function gitBundle(
       !record.commit.startsWith('tree ' + treeId + '\n')
     )
       throw Error('Git object integrity check failed');
-    objects.set(blobId, { type: 3, data: blob });
+    for (const content of Object.values(files)) {
+      const blob = bytes(content);
+      objects.set(await objectId('blob', blob), { type: 3, data: blob });
+    }
     objects.set(treeId, { type: 2, data: tree });
     objects.set(record.oid, { type: 1, data: commit });
   }

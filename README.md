@@ -61,3 +61,6 @@ Each mission now has an independent Git head. Mission definitions are stored as 
 
 ## Following and personal views
 All missions support following without a role commitment. Generic follows persist separately from participation; the Mahabharata uses its existing follow table. Following grants conversation access, and My missions distinguishes Created, Following and Participating with an explicit refresh. Unfollowing does not withdraw a role or release an action.
+
+## Versioned working files
+`/missions/[slug]/workspace` lets mission creators/maintainers save small working text files with commit descriptions. Anyone with site access can inspect files and, when allowed, fork the mission. Files carry into forks and survive mission brief edits. Deletes are new revisions; prior contents remain in Git. The pilot accepts flat safe filenames, at most 12 working files plus mission.json, 16 KB per working file, and 64 KB total. mission.json is managed through the mission brief. Files are not executed or rendered as active HTML. Push/pull synchronization and merging are not yet supported.
