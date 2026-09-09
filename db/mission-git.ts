@@ -11,6 +11,7 @@ export type Repo = {
 export type Commit = {
   oid: string;
   parent: string | null;
+  merge_parent: string | null;
   mission: string;
   author: string;
   message: string;
@@ -51,6 +52,7 @@ export async function prepareCommit(
   message: string,
   stamp: string,
   files?: Record<string, string>,
+  mergeParent: string | null = null,
 ) {
   const prior = parent
     ? await database()
@@ -61,6 +63,20 @@ export async function prepareCommit(
   if (parent && !prior) throw Error('Missing parent commit');
   if ((prior?.depth || 0) >= 200)
     throw Error('This pilot supports 200 commits in a mission ancestry');
+  const other = mergeParent
+    ? await database()
+        .prepare('SELECT depth FROM git_commits WHERE oid=?')
+        .bind(mergeParent)
+        .first<{ depth: number }>()
+    : null;
+  if (mergeParent && !other) throw Error('Missing merge parent');
+  if (parent) {
+    const reachable = new Set((await ancestry(parent)).map((c) => c.oid));
+    if (mergeParent)
+      for (const c of await ancestry(mergeParent)) reachable.add(c.oid);
+    if (reachable.size >= 200)
+      throw Error('This pilot supports 200 commits in a mission ancestry');
+  }
   const inherited = files ?? (parent ? (await readCommit(parent)).files : {});
   const object = await createObjects(
     snapshot,
@@ -69,6 +85,7 @@ export async function prepareCommit(
     message,
     stamp,
     inherited,
+    mergeParent,
   );
   if (
     Object.values(object.files).reduce(
@@ -90,19 +107,29 @@ export async function prepareCommit(
   const row: Commit = {
     oid: object.oid,
     parent,
+    merge_parent: mergeParent,
     mission,
     author,
     message,
     created_at: stamp,
-    depth: (prior?.depth || 0) + 1,
+    depth: Math.max(prior?.depth || 0, other?.depth || 0) + 1,
   };
   return {
     row,
     statement: database()
       .prepare(
-        'INSERT OR IGNORE INTO git_commits (oid,parent,mission,author,message,created_at,depth) VALUES (?,?,?,?,?,?,?)',
+        'INSERT OR IGNORE INTO git_commits (oid,parent,merge_parent,mission,author,message,created_at,depth) VALUES (?,?,?,?,?,?,?,?)',
       )
-      .bind(row.oid, parent, mission, author, message, stamp, row.depth),
+      .bind(
+        row.oid,
+        parent,
+        mergeParent,
+        mission,
+        author,
+        message,
+        stamp,
+        row.depth,
+      ),
   };
 }
 export async function ensureRepository(mission: string): Promise<Repo> {
@@ -152,7 +179,7 @@ export async function ancestry(head: string) {
   return (
     await database()
       .prepare(
-        'WITH RECURSIVE history AS (SELECT * FROM git_commits WHERE oid=? UNION ALL SELECT c.* FROM git_commits c JOIN history h ON c.oid=h.parent) SELECT * FROM history LIMIT 201',
+        'WITH RECURSIVE history AS (SELECT * FROM git_commits WHERE oid=? UNION SELECT c.* FROM git_commits c JOIN history h ON c.oid=h.parent OR c.oid=h.merge_parent) SELECT * FROM history ORDER BY depth DESC,oid LIMIT 201',
       )
       .bind(head)
       .all<Commit>()
@@ -163,7 +190,11 @@ export async function exportRepository(repo: Repo) {
   if (
     !commits.length ||
     commits.length > 200 ||
-    commits[commits.length - 1].parent
+    commits.some((c) =>
+      [c.parent, c.merge_parent].some(
+        (p) => p && !commits.some((v) => v.oid === p),
+      ),
+    )
   )
     throw Error('Incomplete repository history');
   const records: { oid: string; blob: string; commit: string }[] = [];

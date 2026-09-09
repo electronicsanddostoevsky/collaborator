@@ -1,5 +1,13 @@
 # Collaborator platform history
 
+## 2026-09-09 — Reviewed contributions between forks
+
+- Propose fixed working-file versions from a fork to its direct upstream mission.
+- Compare files against shared ancestry; require explicit choices for conflicting files and a review note.
+- Merge with two Git parents, preserve upstream identity and intent, and retain review decisions.
+- Reject stale upstream versions and unauthorized reviews; preserve retry safety.
+- Verify exported merge histories with native Git clone, strict fsck, and ancestry checks.
+
 This repository versions the Collaborator platform itself. Mission activity and uploaded contributions are separate application data. Future mission repositories must remain separate from this repository and from one another.
 
 ## 2026-09-09 — Actions and mission history

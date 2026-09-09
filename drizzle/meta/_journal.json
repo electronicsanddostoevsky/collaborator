@@ -64,6 +64,20 @@
       "when": 1788958175818,
       "tag": "0008_wealthy_juggernaut",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1788958913030,
+      "tag": "0009_youthful_liz_osborn",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1788958982321,
+      "tag": "0010_ordinary_pet_avengers",
+      "breakpoints": true
     }
   ]
 }

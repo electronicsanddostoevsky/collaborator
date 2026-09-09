@@ -45,6 +45,7 @@ export async function createObjects(
   message: string,
   stamp: string,
   files: Record<string, string> = {},
+  mergeParent: string | null = null,
 ) {
   const blob = JSON.stringify(snapshot, null, 2) + '\n',
     allFiles = { ...files, 'mission.json': blob },
@@ -60,6 +61,7 @@ export async function createObjects(
     treeId +
     '\n' +
     (parent ? 'parent ' + parent + '\n' : '') +
+    (mergeParent ? 'parent ' + mergeParent + '\n' : '') +
     'author ' +
     identity +
     '\ncommitter ' +

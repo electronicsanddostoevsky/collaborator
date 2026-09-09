@@ -115,6 +115,12 @@ export default function Files({ mission }: { mission: string }) {
       {data && (
         <>
           <div className="workspace-toolbar">
+            <a
+              className="secondary"
+              href={'/missions/' + mission + '/proposals'}
+            >
+              Proposed contributions →
+            </a>
             <Select
               value={selected}
               disabled={busy || dirty}

@@ -172,6 +172,7 @@ export const missionRepositories = sqliteTable('mission_repositories', {
 export const gitCommits = sqliteTable('git_commits', {
   oid: text('oid').primaryKey(),
   parent: text('parent'),
+  mergeParent: text('merge_parent'),
   mission: text('mission').notNull(),
   author: text('author').notNull(),
   message: text('message').notNull(),
@@ -197,3 +198,29 @@ export const workspaceWrites = sqliteTable('workspace_writes', {
   userId: text('user_id').notNull(),
   head: text('head').notNull(),
 });
+export const mergeRequests = sqliteTable(
+  'merge_requests',
+  {
+    id: text('id').primaryKey(),
+    source: text('source').notNull(),
+    target: text('target').notNull(),
+    base: text('base').notNull(),
+    sourceHead: text('source_head').notNull(),
+    targetHead: text('target_head').notNull(),
+    userId: text('user_id').notNull(),
+    author: text('author').notNull(),
+    title: text('title').notNull(),
+    description: text('description').notNull(),
+    status: text('status').notNull().default('pending'),
+    feedback: text('feedback').notNull().default(''),
+    resolutions: text('resolutions').notNull().default('{}'),
+    reviewer: text('reviewer'),
+    mergeHead: text('merge_head'),
+    createdAt: text('created_at').notNull(),
+    reviewedAt: text('reviewed_at'),
+  },
+  (t) => [
+    index('idx_merge_target_status').on(t.target, t.status),
+    index('idx_merge_source').on(t.source),
+  ],
+);

@@ -20,6 +20,16 @@ export default function PlatformHistory() {
         <div className="mission-timeline">
           <article className="timeline-item">
             <span className="small-label">9 SEPTEMBER 2026</span>
+            <h2>Independent ideas, shared progress</h2>
+            <p className="post-body">
+              Fork a mission, develop its working files, and propose changes
+              back to the original. Maintainers compare both versions, resolve
+              conflicting files, and accept a contribution with a recorded
+              review. The resulting Git merge preserves both histories.
+            </p>
+          </article>
+          <article className="timeline-item">
+            <span className="small-label">9 SEPTEMBER 2026</span>
             <h2>From interest to action</h2>
             <p className="post-body">
               Mission creators can offer clear actions with a definition of
@@ -56,7 +66,7 @@ export default function PlatformHistory() {
             Each mission now has Git history for its definition and small
             working text files. Download a repository or fork from a recorded
             version while preserving files and ancestry. Large assets, remote
-            synchronization, and reviewed merges are the next layer.
+            synchronization, and agent execution are the next layer.
           </p>
         </div>
         <a className="primary" href="/">

@@ -1,0 +1,1 @@
+ALTER TABLE `merge_requests` ADD `resolutions` text DEFAULT '{}' NOT NULL;

@@ -10,6 +10,7 @@ type Data = {
   commits: {
     oid: string;
     parent: string | null;
+    merge_parent?: string | null;
     author: string;
     message: string;
     created_at: string;
@@ -87,6 +88,12 @@ export default function Repository({ mission }: { mission: string }) {
             </a>
             <a
               className="secondary"
+              href={'/missions/' + mission + '/proposals'}
+            >
+              Proposed contributions →
+            </a>
+            <a
+              className="secondary"
               href={
                 '/api/mission-git?mission=' +
                 encodeURIComponent(mission) +
@@ -111,6 +118,11 @@ export default function Repository({ mission }: { mission: string }) {
                 {c.parent && (
                   <p className="workspace-status">
                     Parent <code>{c.parent.slice(0, 12)}</code>
+                  </p>
+                )}
+                {c.merge_parent && (
+                  <p className="workspace-status">
+                    Merged parent <code>{c.merge_parent.slice(0, 12)}</code>
                   </p>
                 )}
               </article>
