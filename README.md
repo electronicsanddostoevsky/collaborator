@@ -58,3 +58,6 @@ Community missions and the beach/invention seed missions now support creator-def
 
 ## Per-mission Git and forks
 Each mission now has an independent Git head. Mission definitions are stored as real Git commit/tree/blob objects backed by R2, with ancestry and refs in D1. Creation and edits advance the head; forks share source ancestry while developing independently. The history page exports a full standard Git bundle, validated against native Git in tests. Creator-selected platform fork policy is fixed at creation and inherited by descendants. Legacy missions initialize from their current baseline on first access. These repositories currently contain mission.json; activity logs and uploaded artifacts remain separate. Remote Git push/pull, merges and full design/code workspaces are not enabled. See docs/git-and-mission-history.md for boundaries, capacity limits, and the next layer.
+
+## Following and personal views
+All missions support following without a role commitment. Generic follows persist separately from participation; the Mahabharata uses its existing follow table. Following grants conversation access, and My missions distinguishes Created, Following and Participating with an explicit refresh. Unfollowing does not withdraw a role or release an action.

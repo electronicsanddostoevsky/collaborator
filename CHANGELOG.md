@@ -34,3 +34,10 @@ This repository versions the Collaborator platform itself. Mission activity and 
 - Creation and ownership-aware editing of community missions.
 
 The Git commit history is the authoritative source history. These release notes describe user-visible behavior and do not replace the code diffs.
+
+## 2026-09-09 — Follow without committing
+
+- Follow or unfollow any mission without claiming an action or expressing role interest.
+- Followers can join mission conversations; role commitments remain independent.
+- My missions includes followed missions and adds Created, Following, and Participating filters plus explicit refresh.
+- Preserve the existing Mahabharata follow state and account isolation.

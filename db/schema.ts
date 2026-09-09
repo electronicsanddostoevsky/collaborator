@@ -178,3 +178,16 @@ export const gitCommits = sqliteTable('git_commits', {
   createdAt: text('created_at').notNull(),
   depth: integer('depth').notNull(),
 });
+export const missionFollows = sqliteTable(
+  'mission_follows',
+  {
+    id: text('id').primaryKey(),
+    mission: text('mission').notNull(),
+    userId: text('user_id').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [
+    uniqueIndex('idx_mission_follows_membership').on(t.mission, t.userId),
+    index('idx_mission_follows_user').on(t.userId),
+  ],
+);

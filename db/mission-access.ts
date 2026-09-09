@@ -37,6 +37,11 @@ export async function missionAccess(req: Request, slug: string) {
         .bind(slug, id)
         .first());
   }
+  if (id && !joined && slug !== 'mahabharata')
+    joined = !!(await database()
+      .prepare('SELECT id FROM mission_follows WHERE mission=? AND user_id=?')
+      .bind(slug, id)
+      .first());
   let author =
     req.headers.get('oai-authenticated-user-full-name') || 'Contributor';
   if (

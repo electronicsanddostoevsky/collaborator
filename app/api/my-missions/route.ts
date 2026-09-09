@@ -13,9 +13,9 @@ export async function GET(req: Request) {
       !!maintainerEmail() && email.toLowerCase() === maintainerEmail();
     const rows = await db
       .prepare(
-        'SELECT m.id,m.title,m.category,m.description,m.owner_id,p.role,EXISTS(SELECT 1 FROM mission_actions a WHERE a.mission=m.id AND a.assignee_id=?) AS action_joined FROM community_missions m LEFT JOIN participation p ON p.mission=m.id AND p.user_id=? WHERE m.owner_id=? OR p.user_id=? OR EXISTS(SELECT 1 FROM mission_actions a WHERE a.mission=m.id AND a.assignee_id=?) ORDER BY m.updated_at DESC LIMIT 200',
+        'SELECT m.id,m.title,m.category,m.description,m.owner_id,p.role,f.id AS follow_id,EXISTS(SELECT 1 FROM mission_actions a WHERE a.mission=m.id AND a.assignee_id=?) AS action_joined FROM community_missions m LEFT JOIN participation p ON p.mission=m.id AND p.user_id=? LEFT JOIN mission_follows f ON f.mission=m.id AND f.user_id=? WHERE m.owner_id=? OR p.user_id=? OR f.id IS NOT NULL OR EXISTS(SELECT 1 FROM mission_actions a WHERE a.mission=m.id AND a.assignee_id=?) ORDER BY m.updated_at DESC LIMIT 200',
       )
-      .bind(user, user, user, user, user)
+      .bind(user, user, user, user, user, user)
       .all<{
         id: string;
         title: string;
@@ -24,15 +24,18 @@ export async function GET(req: Request) {
         owner_id: string;
         role: string | null;
         action_joined: number;
+        follow_id: string | null;
       }>();
-    const items = rows.results.map(({ owner_id, action_joined, ...m }) => ({
-      ...m,
-      slug: m.id,
-      href: '/missions/' + m.id,
-      created: owner_id === user,
-      joined: !!m.role || !!action_joined,
-      following: false,
-    }));
+    const items = rows.results.map(
+      ({ owner_id, action_joined, follow_id, ...m }) => ({
+        ...m,
+        slug: m.id,
+        href: '/missions/' + m.id,
+        created: owner_id === user,
+        joined: !!m.role || !!action_joined,
+        following: !!follow_id,
+      }),
+    );
     for (const m of missions) {
       const interest = await db
         .prepare('SELECT role FROM participation WHERE mission=? AND user_id=?')
@@ -44,7 +47,11 @@ export async function GET(req: Request) {
         )
         .bind(m.slug, user)
         .first());
-      if (interest || actionJoined || maintainer)
+      const followed = !!(await db
+        .prepare('SELECT id FROM mission_follows WHERE mission=? AND user_id=?')
+        .bind(m.slug, user)
+        .first());
+      if (interest || actionJoined || maintainer || followed)
         items.push({
           id: m.slug,
           slug: m.slug,
@@ -56,10 +63,12 @@ export async function GET(req: Request) {
             interest?.role ||
             (maintainer
               ? 'Mission maintainer'
-              : 'Contributing through an action'),
+              : actionJoined
+                ? 'Contributing through an action'
+                : ''),
           created: false,
           joined: !!interest || actionJoined,
-          following: false,
+          following: followed,
         });
     }
     const own = await db

@@ -50,6 +50,13 @@
       "when": 1788956779729,
       "tag": "0006_happy_smiling_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1788957611058,
+      "tag": "0007_steep_rafael_vega",
+      "breakpoints": true
     }
   ]
 }

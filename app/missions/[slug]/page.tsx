@@ -1,5 +1,6 @@
 import Updates from '@/components/collaboration/updates';
 import Actions from '@/components/collaboration/actions';
+import FollowMission from '@/components/collaboration/follow';
 import { getMission } from '@/db/missions';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
@@ -35,6 +36,7 @@ export default async function Mission({
         <span className="eyebrow">{m.category.toUpperCase()}</span>
         <h1>{m.title}</h1>
         <p className="intro">{m.description}</p>
+        <FollowMission mission={m.slug} />
         <p className="workspace-status">
           {m.intent === 'commercial'
             ? 'Commercial intent'

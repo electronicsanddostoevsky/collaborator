@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 type Mission = {
   id: string;
   href: string;
@@ -19,21 +19,38 @@ export default function MyMissions() {
       pendingReviews: number;
     } | null>(null),
     [error, setError] = useState(''),
+    [filter, setFilter] = useState('All'),
     [signin, setSignin] = useState(false);
-  useEffect(() => {
-    fetch('/api/my-missions', { cache: 'no-store' })
-      .then(async (r) => {
-        const d = (await r.json()) as {
-          missions: Mission[];
-          pendingReviews: number;
-          error: string;
-        };
-        if (r.status === 401) setSignin(true);
-        if (!r.ok) throw Error(d.error);
-        setData(d);
-      })
-      .catch((e) => setError(e.message));
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch('/api/my-missions', { cache: 'no-store' });
+      const d = (await r.json()) as {
+        missions: Mission[];
+        pendingReviews: number;
+        error: string;
+      };
+      setSignin(r.status === 401);
+      if (!r.ok) throw Error(d.error);
+      setData(d);
+      setError('');
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : 'Could not load your missions.',
+      );
+    }
   }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
+  const shown = data?.missions.filter(
+    (m) =>
+      filter === 'All' ||
+      (filter === 'Created'
+        ? m.created
+        : filter === 'Following'
+          ? m.following
+          : m.joined),
+  );
   return (
     <>
       <header className="topbar">
@@ -51,6 +68,22 @@ export default function MyMissions() {
         <span className="eyebrow">PICK UP WHERE YOU LEFT OFF</span>
         <h1>My missions</h1>
         <p className="intro">The things you’re helping make happen.</p>
+        <div className="history-tools">
+          <div className="filter-buttons" aria-label="Filter your missions">
+            {['All', 'Created', 'Following', 'Participating'].map((f) => (
+              <button
+                key={f}
+                aria-pressed={filter === f}
+                onClick={() => setFilter(f)}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+          <button className="text-button" onClick={load}>
+            Refresh missions
+          </button>
+        </div>
         {error && (
           <p role="alert" className="error-note">
             {error}
@@ -75,8 +108,8 @@ export default function MyMissions() {
           <div className="update-empty">
             <h2>Your next mission is out there.</h2>
             <p>
-              Join a mission, follow the Mahabharata project, or start something
-              you want to see happen.
+              Join a mission, follow something you care about, or start
+              something you want to see happen.
             </p>
             <a className="primary" href="/">
               Explore missions →
@@ -84,7 +117,13 @@ export default function MyMissions() {
           </div>
         )}
         <div className="my-mission-grid">
-          {data?.missions.map((m) => (
+          {data && data.missions.length > 0 && shown?.length === 0 && (
+            <p className="update-empty">
+              No missions in this view yet. Follow one you care about or take a
+              small action.
+            </p>
+          )}
+          {shown?.map((m) => (
             <a className="my-mission-card" key={m.id} href={m.href}>
               <span className="eyebrow">{m.category}</span>
               <h2>{m.title}</h2>

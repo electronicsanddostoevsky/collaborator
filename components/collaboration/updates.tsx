@@ -187,7 +187,8 @@ export default function Updates({ mission }: { mission: string }) {
       )}
       {state?.signedIn && !state.canReply && (
         <p className="workspace-status">
-          Express interest in a role to join the conversation.
+          Follow this mission or express interest in a role to join the
+          conversation.
         </p>
       )}
       {state && state.posts.length === 0 && (
