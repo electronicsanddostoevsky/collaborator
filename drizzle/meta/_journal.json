@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1788951092238,
+      "tag": "0000_faithful_carmella_unuscione",
+      "breakpoints": true
+    }
+  ]
+}

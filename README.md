@@ -24,3 +24,10 @@ Production build and TypeScript validation are required for this increment. Brow
 
 ## Open decisions before spending or public launch
 Monthly execution ceiling; contributor licensing/withdrawal/relicensing rules; initial collaborators. No credentials belong in committed files.
+
+## Increment 1 implementation
+Persistent D1 claims, follows, immutable written submissions with optional HTTPS artifact links, maintainer review decisions, and numbered accepted contributions. Identity comes only from Sites dispatch-authenticated headers. API mutation routes reject missing identity and cross-origin requests. External linked files are not snapshotted or version-controlled by this increment.
+
+Maintainer rights are fail-closed until MAINTAINER_EMAIL is explicitly confirmed by the owner and set in hosted runtime configuration. No sample or first-visitor account receives authority. The site remains owner-private; inviting collaborators is a separate access change.
+
+Tests: `node tests/collaboration.test.mjs` uses a real in-memory SQLite database and the actual route code with only the database/runtime configuration adapter replaced. Covers claim races/ownership, duplicate submissions, input checks, denied review, and persistent follow state. `python tests/local_api.py` checks that local Sites rejects spoofed identity headers. Positive maintainer review requires a confirmed account before end-to-end verification.
