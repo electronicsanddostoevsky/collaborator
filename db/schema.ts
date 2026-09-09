@@ -55,3 +55,18 @@ export const artifacts = sqliteTable(
   },
   (t) => [index('idx_artifacts_user').on(t.userId)],
 );
+
+export const participation = sqliteTable(
+  'participation',
+  {
+    id: text('id').primaryKey(),
+    mission: text('mission').notNull(),
+    userId: text('user_id').notNull(),
+    role: text('role').notNull(),
+    note: text('note').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [
+    uniqueIndex('idx_participation_mission_user').on(t.mission, t.userId),
+  ],
+);

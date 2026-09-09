@@ -64,3 +64,19 @@ const p4={...p,id:crypto.randomUUID(),artifactId:uploaded.data.id,parentId:p3.id
 assert.equal((await download(uploaded.data.id,'bob')).status,200);
 const current=(await call(null,'alice')).data.proposals.find(x=>x.id===p4.id);assert.equal(current.parent_id,p3.id);assert.equal(current.sha256,uploaded.data.sha256);
 console.log('PASS: upload ownership, size/type limits, immutable download bytes, private draft access, attachment headers, cross-user attachment rejection, and revision lineage.');
+
+sqlite.exec(readFileSync('drizzle/0002_great_aqueduct.sql','utf8'));
+const missionSource=ts.transpileModule(readFileSync('lib/missions.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText;
+globalThis.__missions=(await import('data:text/javascript;base64,'+Buffer.from(missionSource).toString('base64'))).missions;
+const participationSource=readFileSync('app/api/participation/route.ts','utf8').replace(/import \{\s*database\s*\} from '@\/db\/client';/,'const database=()=>globalThis.__testDB;').replace(/import \{\s*missions\s*\} from '@\/lib\/missions';/,'const missions=globalThis.__missions;');
+const part=await import('data:text/javascript;base64,'+Buffer.from(ts.transpileModule(participationSource,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText).toString('base64'));
+// D1 all() adapter for aggregate queries in the participation endpoint.
+Statement.prototype.all=async function(){return {results:sqlite.prepare(this.sql).all(...this.args)}};
+async function participate(payload,actor){const headers={Origin:'https://local.test','Content-Type':'application/json'};if(actor){headers['oai-authenticated-user-id']=actor;headers['oai-authenticated-user-email']=actor+'@example.test'}const r=await part[payload?'POST':'GET'](new Request('https://local.test/api/participation?mission=beach-cleanup',{method:payload?'POST':'GET',headers,body:payload?JSON.stringify(payload):undefined}));return {status:r.status,data:await r.json()}}
+const interest={action:'interest',mission:'beach-cleanup',role:'Volunteer at the cleanup',note:'Available on a weekend'};
+assert.equal((await participate(interest)).status,401);assert.equal((await participate(interest,'alice')).status,200);assert.equal((await participate(interest,'alice')).status,200);assert.equal((await participate(null,'alice')).data.counts[0].count,1);
+assert.equal((await participate({...interest,role:'Invented role'},'alice')).status,400);
+await participate({...interest,role:'Bring refreshments'},'alice');assert.equal((await participate(null,'alice')).data.own.role,'Bring refreshments');assert.equal((await participate(null,'bob')).data.own,null);
+await participate({action:'withdraw',mission:'beach-cleanup'},'bob');assert.equal((await participate(null,'alice')).data.counts[0].count,1);
+await participate({action:'withdraw',mission:'beach-cleanup'},'alice');assert.equal((await participate(null,'alice')).data.counts.length,0);
+console.log('PASS: participation sign-in, role validation, idempotent interest, updates, private notes, ownership, withdrawal.');

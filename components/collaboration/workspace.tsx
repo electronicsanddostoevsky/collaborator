@@ -106,7 +106,7 @@ export function ContributionForm({
       ) : !data.user ? (
         <a
           className="primary"
-          href="/signin-with-chatgpt?return_to=%2F"
+          href="/signin-with-chatgpt?return_to=%2Fmahabharata"
           target="_top"
         >
           Sign in with ChatGPT
@@ -493,3 +493,4 @@ export function Contributions({
     </div>
   );
 }
+

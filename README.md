@@ -38,3 +38,8 @@ One optional uploaded file per contribution, up to 10 MiB, stored under a unique
 A contributor has a 100 MiB pilot allowance across retained uploads. Failed storage writes are cleaned up; abandoned successful uploads currently retain their quota allocation. Automatic expiry and upload management are future work. Do not expose this private pilot broadly before moderation, cleanup, and final contribution terms are ready.
 
 Contributions may name an accepted or changes-requested contribution on the same task as their parent. Every submission remains a separate record. This is artifact provenance, not Git branch merging. A two-person signed-in pilot and browser interaction QA remain to be performed.
+
+## Mission-first expansion
+The root is a searchable, category-filtered mission feed. The original game workflow remains at /mahabharata. /missions/beach-cleanup and /missions/haircut-machine are explicitly seeded example missions with no real event date, organizer, or fabricated participants. Signed-in people can express one role of interest per mission, update it, and withdraw. Only aggregate counts are shown; private planning notes are returned only to their author. Payments, confirmed scheduling, public mission creation, and organization formation are not implemented.
+
+The shareable vision is output/pdf/Collaborator-Help-Make-It-Exist.pdf and is also available from the feed as /vision.pdf. It documents the user's expanded purpose and examples, including commercial implementations under explicit terms without silent appropriation of community work.
