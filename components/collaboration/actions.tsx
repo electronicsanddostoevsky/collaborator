@@ -260,7 +260,11 @@ function ActionCard({
       </div>
       <h3>{a.title}</h3>
       {a.module && <p className="small-label">{a.module}</p>}
-      {!!a.blocked && a.status === 'open' && <p className="workspace-status">Waiting for {a.blocked} prerequisite task(s) to be accepted.</p>}
+      {!!a.blocked && a.status === 'open' && (
+        <p className="workspace-status">
+          Waiting for {a.blocked} prerequisite task(s) to be accepted.
+        </p>
+      )}
       <span className="small-label">{a.kind}</span>
       <p className="post-body">{a.brief}</p>
       <div className="definition-done">
@@ -335,7 +339,7 @@ function ActionCard({
           </div>
         </form>
       )}
-      {a.status === 'review' && canManage && (
+      {a.status === 'review' && (canManage || a.canReview) && (
         <form
           className="update-composer"
           onSubmit={(e) => {

@@ -91,3 +91,8 @@ The Git commit history is the authoritative source history. These release notes 
 - Public GitHub source and revised manifesto with independent Git backup.
 - Local AI planning, editable proposals, lead approval/rejection, dependency-aware tasks and accepted Git snapshots.
 - Tested real local generation, permissions, retries and stale writes. Subdivision leads, worker sharing and Unreal execution remain pending.
+
+## Community and subdivision leads — 10 September 2026
+- Explicit membership, visible teams and owner-managed subdivision leads.
+- Scoped plan decisions and task reviews, transactional revocation checks, and Git-recorded role changes.
+- Membership and delegated review counts integrated into My missions; real collaborator invitations remain pending.

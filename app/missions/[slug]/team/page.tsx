@@ -1,4 +1,4 @@
-import Planning from '@/components/collaboration/planning';
+import Team from '@/components/collaboration/team';
 import { missionDefinition } from '@/db/mission-git';
 import { notFound } from 'next/navigation';
 export default async function Page({
@@ -23,21 +23,12 @@ export default async function Page({
         </a>
       </header>
       <main className="action-mission">
-        <span className="eyebrow">MISSION PLANNING</span>
+        <span className="eyebrow">MISSION COMMUNITY</span>
         <h1>{mission.title}</h1>
-        <p className="intro">
-          Propose a milestone, agree the work, and build it together.
-        </p>
-        <a className="text-button" href={'/missions/' + slug + '/workshop'}>
-          Open mission tools ↗
+        <a className="text-button" href={'/missions/' + slug + '/plan'}>
+          Plan and review work ↗
         </a>
-        <a className="text-button" href={'/missions/' + slug + '/team'}>
-          Join the community or manage leads ↗
-        </a>
-        <Planning
-          mission={slug}
-          title={mission.title + '. ' + mission.description}
-        />
+        <Team mission={slug} />
       </main>
     </>
   );

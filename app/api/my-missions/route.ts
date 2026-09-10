@@ -11,11 +11,21 @@ export async function GET(req: Request) {
     const db = database();
     const maintainer =
       !!maintainerEmail() && email.toLowerCase() === maintainerEmail();
+    const memberships = new Set(
+      (
+        await db
+          .prepare(
+            'SELECT mission FROM mission_members WHERE user_id=? AND active=1',
+          )
+          .bind(user)
+          .all<{ mission: string }>()
+      ).results.map((r) => r.mission),
+    );
     const rows = await db
       .prepare(
-        'SELECT m.id,m.title,m.category,m.description,m.owner_id,p.role,f.id AS follow_id,EXISTS(SELECT 1 FROM mission_actions a WHERE a.mission=m.id AND a.assignee_id=?) AS action_joined FROM community_missions m LEFT JOIN participation p ON p.mission=m.id AND p.user_id=? LEFT JOIN mission_follows f ON f.mission=m.id AND f.user_id=? WHERE m.owner_id=? OR p.user_id=? OR f.id IS NOT NULL OR EXISTS(SELECT 1 FROM mission_actions a WHERE a.mission=m.id AND a.assignee_id=?) ORDER BY m.updated_at DESC LIMIT 200',
+        'SELECT m.id,m.title,m.category,m.description,m.owner_id,p.role,f.id AS follow_id,EXISTS(SELECT 1 FROM mission_actions a WHERE a.mission=m.id AND a.assignee_id=?) AS action_joined FROM community_missions m LEFT JOIN participation p ON p.mission=m.id AND p.user_id=? LEFT JOIN mission_follows f ON f.mission=m.id AND f.user_id=? WHERE m.owner_id=? OR p.user_id=? OR f.id IS NOT NULL OR EXISTS(SELECT 1 FROM mission_actions a WHERE a.mission=m.id AND a.assignee_id=?) OR m.id IN (SELECT mission FROM mission_members WHERE user_id=? AND active=1) ORDER BY m.updated_at DESC LIMIT 200',
       )
-      .bind(user, user, user, user, user, user)
+      .bind(user, user, user, user, user, user, user)
       .all<{
         id: string;
         title: string;
@@ -32,7 +42,7 @@ export async function GET(req: Request) {
         slug: m.id,
         href: '/missions/' + m.id,
         created: owner_id === user,
-        joined: !!m.role || !!action_joined,
+        joined: !!m.role || !!action_joined || memberships.has(m.id),
         following: !!follow_id,
       }),
     );
@@ -51,7 +61,13 @@ export async function GET(req: Request) {
         .prepare('SELECT id FROM mission_follows WHERE mission=? AND user_id=?')
         .bind(m.slug, user)
         .first());
-      if (interest || actionJoined || maintainer || followed)
+      if (
+        interest ||
+        actionJoined ||
+        maintainer ||
+        followed ||
+        memberships.has(m.slug)
+      )
         items.push({
           id: m.slug,
           slug: m.slug,
@@ -67,7 +83,7 @@ export async function GET(req: Request) {
                 ? 'Contributing through an action'
                 : ''),
           created: false,
-          joined: !!interest || actionJoined,
+          joined: !!interest || actionJoined || memberships.has(m.slug),
           following: followed,
         });
     }
@@ -79,7 +95,11 @@ export async function GET(req: Request) {
       .first<{ following: number; claimed: number; contributed: number }>();
     if (
       own &&
-      (own.following || own.claimed || own.contributed || maintainer)
+      (own.following ||
+        own.claimed ||
+        own.contributed ||
+        maintainer ||
+        memberships.has('mahabharata'))
     ) {
       items.push({
         id: 'mahabharata',
@@ -94,7 +114,8 @@ export async function GET(req: Request) {
             ? 'Mission maintainer'
             : '',
         created: false,
-        joined: !!(own.claimed || own.contributed),
+        joined:
+          !!(own.claimed || own.contributed) || memberships.has('mahabharata'),
         following: !!own.following,
       });
     }
@@ -127,6 +148,14 @@ export async function GET(req: Request) {
       )
       .bind(user)
       .all<{ mission: string; active: number; reviews: number }>();
+    const delegatedReviews = (
+      await db
+        .prepare(
+          "SELECT a.mission,COUNT(*) reviews FROM mission_actions a JOIN planned_tasks p ON p.action_id=a.id JOIN mission_leads l ON l.mission=a.mission AND l.module=lower(trim(p.module)) JOIN mission_members m ON m.id=l.member_id AND m.active=1 WHERE m.user_id=? AND a.status='review' GROUP BY a.mission",
+        )
+        .bind(user)
+        .all<{ mission: string; reviews: number }>()
+    ).results;
     const enriched = items.map((m) => ({
       ...m,
       latest: latestRows.results.find((p) => p.mission === m.slug) || null,
@@ -135,7 +164,7 @@ export async function GET(req: Request) {
       pendingActions:
         m.created || (maintainer && missions.some((s) => s.slug === m.slug))
           ? actionCounts.results.find((a) => a.mission === m.slug)?.reviews || 0
-          : 0,
+          : delegatedReviews.find((r) => r.mission === m.slug)?.reviews || 0,
     }));
     const pending = maintainer
       ? await db

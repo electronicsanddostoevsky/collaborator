@@ -29,7 +29,12 @@ export default async function Page({
           Bring the tools this mission needs. Connect a computer, choose an
           available operation, and share the result for review.
         </p>
-        <a className="text-button" href={'/missions/'+slug+'/plan'}>Plan work with AI and approve tasks ↗</a>
+        <a className="text-button" href={'/missions/' + slug + '/team'}>
+          Community and leads ↗
+        </a>
+        <a className="text-button" href={'/missions/' + slug + '/plan'}>
+          Plan work with AI and approve tasks ↗
+        </a>
         <Workshop mission={slug} />
       </main>
     </>

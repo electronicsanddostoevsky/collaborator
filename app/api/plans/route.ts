@@ -3,6 +3,8 @@ import { missionAccess } from '@/db/mission-access';
 import { ensureRepository, readCommit, prepareCommit } from '@/db/mission-git';
 import { boundedBody } from '@/lib/artifacts';
 import { validPlan, type WorkPlan } from '@/lib/planning';
+import { leadScopes, coversModules, scopeGuard } from '@/db/team-access';
+import { moduleKey } from '@/lib/teams';
 const json = (body: unknown, status = 200) =>
   Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 const uuid = (v: unknown): v is string =>
@@ -33,13 +35,19 @@ export async function GET(req: Request) {
       )
       .bind(mission)
       .all<Row>();
+    const scopes = await leadScopes(mission, access.id);
     return json({
       canPropose: access.canReply,
-      canApprove: access.owner,
+      canApprove: access.owner || scopes.length > 0,
       plans: rows.results.map(({ user_id, ...r }) => ({
         ...r,
         body: JSON.parse(r.body),
         mine: user_id === access.id,
+        canDecide: coversModules(
+          access.owner,
+          scopes,
+          (JSON.parse(r.body) as WorkPlan).tasks.map((t) => t.module),
+        ),
       })),
     });
   } catch {
@@ -120,9 +128,15 @@ export async function POST(req: Request) {
         : json({ error: 'This pilot supports 40 plans per mission.' }, 409);
     }
     if (!old) return json({ error: 'Plan not found.' }, 404);
-    if (!access.owner)
+    const oldPlan: WorkPlan = JSON.parse(old.body),
+      scopes = await leadScopes(d.mission, access.id);
+    if (!validPlan(oldPlan)) return json({ error: 'Plan is invalid.' }, 400);
+    const modules = oldPlan.tasks.map((t) => moduleKey(t.module));
+    if (!coversModules(access.owner, scopes, modules))
       return json(
-        { error: 'Only the mission lead can edit or decide shared plans.' },
+        {
+          error: 'You need lead authority for every subdivision in this plan.',
+        },
         403,
       );
     if (old.status !== 'proposed' || d.revision !== old.revision)
@@ -133,11 +147,35 @@ export async function POST(req: Request) {
     if (d.operation === 'edit') {
       if (!validPlan(d.body))
         return json({ error: 'Check task fields and dependencies.' }, 400);
+      const changedModules = [
+        ...modules,
+        ...d.body.tasks.map((t: WorkPlan['tasks'][number]) =>
+          moduleKey(t.module),
+        ),
+      ];
+      if (!coversModules(access.owner, scopes, changedModules))
+        return json(
+          {
+            error:
+              'A subdivision lead cannot move work outside their authority.',
+          },
+          403,
+        );
       const result = await db
         .prepare(
-          "UPDATE mission_plans SET body=?,revision=revision+1,updated_at=? WHERE id=? AND revision=? AND status='proposed'",
+          "UPDATE mission_plans SET body=?,revision=revision+1,updated_at=? WHERE id=? AND revision=? AND status='proposed' AND " +
+            scopeGuard,
         )
-        .bind(JSON.stringify(d.body), now, d.id, d.revision)
+        .bind(
+          JSON.stringify(d.body),
+          now,
+          d.id,
+          d.revision,
+          Number(access.owner),
+          JSON.stringify(changedModules),
+          d.mission,
+          access.id,
+        )
         .run();
       return result.meta.changes
         ? json({ saved: true })
@@ -153,9 +191,20 @@ export async function POST(req: Request) {
     if (d.operation === 'reject') {
       const r = await db
         .prepare(
-          "UPDATE mission_plans SET status='rejected',feedback=?,reviewer=?,revision=revision+1,updated_at=? WHERE id=? AND revision=? AND status='proposed'",
+          "UPDATE mission_plans SET status='rejected',feedback=?,reviewer=?,revision=revision+1,updated_at=? WHERE id=? AND revision=? AND status='proposed' AND " +
+            scopeGuard,
         )
-        .bind(d.feedback, access.author, now, d.id, d.revision)
+        .bind(
+          d.feedback,
+          access.author,
+          now,
+          d.id,
+          d.revision,
+          Number(access.owner),
+          JSON.stringify(modules),
+          d.mission,
+          access.id,
+        )
         .run();
       return r.meta.changes
         ? json({ saved: true })
@@ -195,7 +244,8 @@ export async function POST(req: Request) {
       commit.statement,
       db
         .prepare(
-          "UPDATE mission_repositories SET head=? WHERE mission=? AND head=? AND EXISTS(SELECT 1 FROM mission_plans WHERE id=? AND status='proposed' AND revision=?) AND (SELECT COUNT(*) FROM mission_actions WHERE mission=?)+?<=100",
+          "UPDATE mission_repositories SET head=? WHERE mission=? AND head=? AND EXISTS(SELECT 1 FROM mission_plans WHERE id=? AND status='proposed' AND revision=?) AND (SELECT COUNT(*) FROM mission_actions WHERE mission=?)+?<=100 AND " +
+            scopeGuard,
         )
         .bind(
           commit.row.oid,
@@ -205,6 +255,10 @@ export async function POST(req: Request) {
           d.revision,
           d.mission,
           plan.tasks.length,
+          Number(access.owner),
+          JSON.stringify(modules),
+          d.mission,
+          access.id,
         ),
       db
         .prepare(

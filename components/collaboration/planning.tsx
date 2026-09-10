@@ -4,6 +4,7 @@ import { validPlan, type WorkPlan, type PlanTask } from '@/lib/planning';
 import Actions from './actions';
 
 type SharedPlan = {
+  canDecide: boolean;
   id: string;
   body: WorkPlan;
   author: string;
@@ -523,7 +524,7 @@ export default function Planning({
                 View accepted mission history ↗
               </a>
             )}
-            {plan.status === 'proposed' && overview.canApprove && (
+            {plan.status === 'proposed' && plan.canDecide && (
               <div className="plan-buttons">
                 <button
                   className="secondary"

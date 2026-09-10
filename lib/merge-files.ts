@@ -13,7 +13,15 @@ export function compareFiles(
   const files = { ...target },
     changes: FileChange[] = [];
   for (const path of new Set([...Object.keys(base), ...Object.keys(source)])) {
-    if (['mission.json', 'mission-tools.json', 'mission-plan.json'].includes(path)) continue;
+    if (
+      [
+        'mission.json',
+        'mission-tools.json',
+        'mission-plan.json',
+        'mission-team.json',
+      ].includes(path)
+    )
+      continue;
     const before = base[path] ?? null,
       proposed = source[path] ?? null,
       current = target[path] ?? null;

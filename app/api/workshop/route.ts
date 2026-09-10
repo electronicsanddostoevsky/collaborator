@@ -210,7 +210,13 @@ export async function POST(req: Request) {
       };
       if (
         Object.keys(files).filter(
-          (p) => !['mission.json', 'mission-tools.json', 'mission-plan.json'].includes(p),
+          (p) =>
+            ![
+              'mission.json',
+              'mission-tools.json',
+              'mission-plan.json',
+              'mission-team.json',
+            ].includes(p),
         ).length > 12
       )
         return json(

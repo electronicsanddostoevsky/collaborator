@@ -67,3 +67,11 @@ Every mission can request a bounded plan from a local model, edit its draft, and
 A real Qwen3 8B planning trial produced a structurally valid three-task Mahabharata plan. This verifies generation and validation, not production quality or Unreal availability. Permission, stale-decision, retry, and dependency tests passed. The pilot caps plans at 40 per mission and all actions at 100; it is not yet a large-team scheduler.
 
 Next: scoped subdivision leads, task-to-tool handoff, durable shared workers, and a real Unreal adapter. The full collaboration trial is defined in PILOT-ACCEPTANCE.md. Forks retain the accepted plan as historical source, but do not automatically copy task assignments or approvals into the new community.
+
+## Community and scoped subdivision leadership — 10 September 2026
+
+Members can explicitly join a mission and see it in My missions. The owner remains the default lead and can appoint or revoke subdivision leads from active members. Assignments enter mission Git, without putting account identifiers into the team snapshot. A fork inherits historical team documentation, not live authority or memberships.
+
+A delegated lead may edit or decide a plan only when every task is in a subdivision they lead. The same scope controls task-result acceptance and requests for changes. Permission is checked again in the write transaction so revocation cannot be bypassed by a decision already in flight. Members holding a lead role must have it revoked before leaving. Leaving the member list does not release existing work or remove separate follows.
+
+Tests cover cross-scope denial, forbidden scope changes, owner-only delegation, inactive members, revocation races, Git snapshots and My missions. This pilot allows 200 active members and 40 subdivisions per mission. Site access invitations remain separate from in-app membership. Workshop artifact reviews are still owner-only until artifacts are connected to scoped tasks.

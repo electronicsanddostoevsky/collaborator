@@ -54,5 +54,12 @@ export async function missionAccess(req: Request, slug: string) {
       author = 'Contributor';
     }
   }
+  if (id && !joined)
+    joined = !!(await database()
+      .prepare(
+        'SELECT id FROM mission_members WHERE mission=? AND user_id=? AND active=1',
+      )
+      .bind(slug, id)
+      .first());
   return { id, owner, canReply: owner || joined, author: author.slice(0, 100) };
 }

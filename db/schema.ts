@@ -254,16 +254,49 @@ export const missionToolsets = sqliteTable('mission_toolsets', {
   revision: integer('revision').notNull(),
 });
 export const missionPlans = sqliteTable('mission_plans', {
-  id: text('id').primaryKey(), mission: text('mission').notNull(),
-  userId: text('user_id').notNull(), author: text('author').notNull(),
-  brief: text('brief').notNull(), model: text('model').notNull(),
-  body: text('body').notNull(), status: text('status').notNull(),
-  revision: integer('revision').notNull(), feedback: text('feedback').notNull(),
-  reviewer: text('reviewer'), head: text('head'),
-  createdAt: text('created_at').notNull(), updatedAt: text('updated_at').notNull(),
+  id: text('id').primaryKey(),
+  mission: text('mission').notNull(),
+  userId: text('user_id').notNull(),
+  author: text('author').notNull(),
+  brief: text('brief').notNull(),
+  model: text('model').notNull(),
+  body: text('body').notNull(),
+  status: text('status').notNull(),
+  revision: integer('revision').notNull(),
+  feedback: text('feedback').notNull(),
+  reviewer: text('reviewer'),
+  head: text('head'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
 });
 export const plannedTasks = sqliteTable('planned_tasks', {
-  actionId: text('action_id').primaryKey(), planId: text('plan_id').notNull(),
-  taskKey: text('task_key').notNull(), module: text('module').notNull(),
+  actionId: text('action_id').primaryKey(),
+  planId: text('plan_id').notNull(),
+  taskKey: text('task_key').notNull(),
+  module: text('module').notNull(),
   dependencies: text('dependencies').notNull(),
 });
+export const missionMembers = sqliteTable(
+  'mission_members',
+  {
+    id: text('id').primaryKey(),
+    mission: text('mission').notNull(),
+    userId: text('user_id').notNull(),
+    name: text('name').notNull(),
+    active: integer('active').notNull(),
+    joinedAt: text('joined_at').notNull(),
+  },
+  (t) => [uniqueIndex('idx_member_account').on(t.mission, t.userId)],
+);
+export const missionLeads = sqliteTable(
+  'mission_leads',
+  {
+    id: text('id').primaryKey(),
+    mission: text('mission').notNull(),
+    module: text('module').notNull(),
+    memberId: text('member_id'),
+    revision: integer('revision').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [uniqueIndex('idx_lead_module').on(t.mission, t.module)],
+);

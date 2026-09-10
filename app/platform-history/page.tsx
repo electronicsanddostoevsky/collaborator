@@ -18,9 +18,56 @@ export default function PlatformHistory() {
           here.
         </p>
         <div className="mission-timeline">
-          <article className="timeline-item"><span className="small-label">10 SEPTEMBER 2026</span><h2>Shared ambition, agreed work</h2><p className="post-body">Local agents can propose modular work with inputs, outputs, dependencies, and review criteria. The mission lead can edit, reject, or approve a proposal. Accepted plans create shared tasks and enter mission Git history.</p><a className="text-button" href="https://github.com/electronicsanddostoevsky/collaborator">Public source and development history ↗</a><a className="text-button" href="/vision.pdf">Read the revised manifesto ↗</a></article>
-          <article className="timeline-item"><span className="small-label">10 SEPTEMBER 2026</span><h2>Your computer, on your terms</h2><p className="post-body">A local control window now asks before enabling tool access, copies your pairing code, and stops work safely. Restarting creates a fresh code while preserving local results. Automatic startup is off.</p></article>
-          <article className="timeline-item"><span className="small-label">10 SEPTEMBER 2026</span><h2>The tools belong to the mission</h2><p className="post-body">Every mission can declare the applications and services it needs. Connected computers provide operations; agents provide assistance. Mahabharata retains Blender and Unreal, while other missions start without game-development defaults. Read-only HTTP APIs are now a second working adapter.</p></article>
+          <article className="timeline-item">
+            <span className="small-label">10 SEPTEMBER 2026</span>
+            <h2>Responsibility can grow with the community</h2>
+            <p className="post-body">
+              People can explicitly join a mission. Its owner can appoint and
+              revoke subdivision leads, whose authority is limited to their
+              assigned disciplines. Shared plans and task results enforce that
+              scope, including when a role is revoked during a decision.
+            </p>
+          </article>
+          <article className="timeline-item">
+            <span className="small-label">10 SEPTEMBER 2026</span>
+            <h2>Shared ambition, agreed work</h2>
+            <p className="post-body">
+              Local agents can propose modular work with inputs, outputs,
+              dependencies, and review criteria. The mission lead can edit,
+              reject, or approve a proposal. Accepted plans create shared tasks
+              and enter mission Git history.
+            </p>
+            <a
+              className="text-button"
+              href="https://github.com/electronicsanddostoevsky/collaborator"
+            >
+              Public source and development history ↗
+            </a>
+            <a className="text-button" href="/vision.pdf">
+              Read the revised manifesto ↗
+            </a>
+          </article>
+          <article className="timeline-item">
+            <span className="small-label">10 SEPTEMBER 2026</span>
+            <h2>Your computer, on your terms</h2>
+            <p className="post-body">
+              A local control window now asks before enabling tool access,
+              copies your pairing code, and stops work safely. Restarting
+              creates a fresh code while preserving local results. Automatic
+              startup is off.
+            </p>
+          </article>
+          <article className="timeline-item">
+            <span className="small-label">10 SEPTEMBER 2026</span>
+            <h2>The tools belong to the mission</h2>
+            <p className="post-body">
+              Every mission can declare the applications and services it needs.
+              Connected computers provide operations; agents provide assistance.
+              Mahabharata retains Blender and Unreal, while other missions start
+              without game-development defaults. Read-only HTTP APIs are now a
+              second working adapter.
+            </p>
+          </article>
           <article className="timeline-item">
             <span className="small-label">10 SEPTEMBER 2026</span>
             <h2>Direct, preview, refine</h2>

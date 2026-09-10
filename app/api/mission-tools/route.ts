@@ -20,10 +20,7 @@ export async function GET(req: Request) {
     if (!row) {
       const repo = await ensureRepository(mission);
       const inherited = (
-        (await readCommit(repo.head)).files as Record<
-          string,
-          string
-        >
+        (await readCommit(repo.head)).files as Record<string, string>
       )['mission-tools.json'];
       if (inherited) {
         const parsed = JSON.parse(inherited).requirements;
@@ -92,7 +89,13 @@ export async function POST(req: Request) {
       };
     if (
       Object.keys(files).filter(
-        (p) => !['mission.json', 'mission-tools.json', 'mission-plan.json'].includes(p),
+        (p) =>
+          ![
+            'mission.json',
+            'mission-tools.json',
+            'mission-plan.json',
+            'mission-team.json',
+          ].includes(p),
       ).length > 12
     )
       return json(

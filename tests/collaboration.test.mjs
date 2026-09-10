@@ -4,7 +4,7 @@ import ts from 'typescript';
 import assert from 'node:assert/strict';
 const sqlite=new DatabaseSync(':memory:');sqlite.exec(readFileSync('drizzle/0000_faithful_carmella_unuscione.sql','utf8'));sqlite.exec(readFileSync('drizzle/0001_strong_cable.sql','utf8'));
 class Statement {constructor(sql,args=[]){this.sql=sql;this.args=args}bind(...args){return new Statement(this.sql,args)}async run(){const r=sqlite.prepare(this.sql).run(...this.args);return {meta:{changes:Number(r.changes)}}}async first(){return sqlite.prepare(this.sql).get(...this.args)||null}}
-sqlite.exec(readFileSync('drizzle/0014_stale_squadron_supreme.sql','utf8'));
+sqlite.exec(readFileSync('drizzle/0014_stale_squadron_supreme.sql','utf8'));sqlite.exec(readFileSync('drizzle/0015_unique_sumo.sql','utf8'));
 const db={prepare:sql=>new Statement(sql),batch:async statements=>{sqlite.exec('BEGIN');try{const results=statements.map(s=>{const statement=sqlite.prepare(s.sql);if(statement.columns().length)return {results:statement.all(...s.args),meta:{changes:0}};const result=statement.run(...s.args);return {results:[],meta:{changes:Number(result.changes)}}});sqlite.exec('COMMIT');return results}catch(e){sqlite.exec('ROLLBACK');throw e}}};
 globalThis.__testDB=db;
 const source=readFileSync('app/api/collaboration/route.ts','utf8').replace("import { database, maintainerEmail } from '@/db/client';","const database=()=>globalThis.__testDB; const maintainerEmail=()=>globalThis.__testMaintainer||'';");
@@ -134,8 +134,11 @@ for(let i=0;i<29;i++)assert.equal((await updateCall({...post,id:crypto.randomUUI
 assert.equal((await updateCall({...post,id:crypto.randomUUID()},'alice')).status,429);
 console.log('PASS: update ownership, joined replies, origin checks, duplicate retries, parent scope, daily cap, personal mission isolation and latest update.');
 
+globalThis.__teamUtils=await moduleFrom(readFileSync('lib/teams.ts','utf8'));
+globalThis.__teamAccess=await moduleFrom(replaceDB(readFileSync('db/team-access.ts','utf8')).replace(/import \{\s*moduleKey\s*\} from '@\/lib\/teams';/,'const {moduleKey}=globalThis.__teamUtils;'));
+function replaceTeam(source){return source.replace(/import \{[^}]+\} from '@\/db\/team-access';/,'const {leadScopes,coversModules,scopeGuard}=globalThis.__teamAccess;').replace(/import \{[^}]+\} from '@\/lib\/teams';/,'const {moduleKey,validModule}=globalThis.__teamUtils;');}
 globalThis.__actionUtils=await moduleFrom(readFileSync('lib/actions.ts','utf8'));
-const actionApi=await moduleFrom(replaceDB(readFileSync('app/api/actions/route.ts','utf8')).replace(/import \{\s*missionAccess\s*\} from '@\/db\/mission-access';/,'const missionAccess=globalThis.__access;').replace(/import \{[^}]+\} from '@\/lib\/actions';/,'const {actionKinds,actionEfforts,actionLink}=globalThis.__actionUtils;'));
+const actionApi=await moduleFrom(replaceTeam(replaceDB(readFileSync('app/api/actions/route.ts','utf8'))).replace(/import \{\s*missionAccess\s*\} from '@\/db\/mission-access';/,'const missionAccess=globalThis.__access;').replace(/import \{[^}]+\} from '@\/lib\/actions';/,'const {actionKinds,actionEfforts,actionLink}=globalThis.__actionUtils;'));
 async function actionCall(payload,actor,missionId=newId,actionId=''){const headers={'Content-Type':'application/json',Origin:'https://local.test'};if(actor){headers['oai-authenticated-user-id']=actor;headers['oai-authenticated-user-email']=actor+'@example.test'}const r=await actionApi[payload?'POST':'GET'](new Request('https://local.test/api/actions?mission='+missionId+'&action='+actionId,{method:payload?'POST':'GET',headers,body:payload?JSON.stringify(payload):undefined}));return {status:r.status,data:await r.json()}}
 const task={id:crypto.randomUUID(),eventId:crypto.randomUUID(),mission:newId,operation:'create',title:'Prepare one garden bed',brief:'Prepare a small bed with compost and mark the planting area.',doneWhen:'Share the prepared dimensions and a short account of the work.',kind:'Time & practical help',effort:'A few hours'};
 assert.equal((await actionCall(task)).status,401);assert.equal((await actionCall(task,'bob')).status,403);assert.equal((await actionCall(task,'alice')).status,201);assert.equal((await actionCall(task,'alice')).status,200);
@@ -243,7 +246,7 @@ console.log('PASS: default Mahabharata tool requirements persist in a fork.');
 
 
 globalThis.__planning=await moduleFrom(readFileSync('lib/planning.ts','utf8'));
-const planApi=await moduleFrom(replaceDB(readFileSync('app/api/plans/route.ts','utf8')).replace(/import \{\s*missionAccess\s*\} from '@\/db\/mission-access';/,'const missionAccess=globalThis.__access;').replace(/import \{[^}]+\} from '@\/db\/mission-git';/,'const {ensureRepository,readCommit,prepareCommit}=globalThis.__missionGit;').replace(/import \{[^}]+\} from '@\/lib\/planning';/,'const {validPlan}=globalThis.__planning;').replace(/import \{\s*boundedBody\s*\} from '@\/lib\/artifacts';/,'const {boundedBody}=globalThis.__uploadUtils;'));
+const planApi=await moduleFrom(replaceTeam(replaceDB(readFileSync('app/api/plans/route.ts','utf8'))).replace(/import \{\s*missionAccess\s*\} from '@\/db\/mission-access';/,'const missionAccess=globalThis.__access;').replace(/import \{[^}]+\} from '@\/db\/mission-git';/,'const {ensureRepository,readCommit,prepareCommit}=globalThis.__missionGit;').replace(/import \{[^}]+\} from '@\/lib\/planning';/,'const {validPlan}=globalThis.__planning;').replace(/import \{\s*boundedBody\s*\} from '@\/lib\/artifacts';/,'const {boundedBody}=globalThis.__uploadUtils;'));
 async function planCall(payload,actor,missionId=newId){const headers={'Content-Type':'application/json',Origin:'https://local.test'};if(actor){headers['oai-authenticated-user-id']=actor;headers['oai-authenticated-user-email']=actor+'@example.test'}const r=await planApi[payload?'POST':'GET'](new Request('https://local.test/api/plans?mission='+missionId,{method:payload?'POST':'GET',headers,body:payload?JSON.stringify(payload):undefined}));return {status:r.status,data:await r.json()}}
 const taskDefinition={key:'reference',module:'Research',title:'Agree a reference brief',brief:'Gather and agree the references for the first prototype.',inputs:'Mission vision',outputs:'Reviewed reference brief',doneWhen:'The lead accepts the references and scope.',dependsOn:[],tools:[]};
 const proposedPlan={id:crypto.randomUUID(),mission:newId,operation:'propose',brief:'Build a small first community prototype.',model:'Local test model',body:{summary:'Agree references, then build a tiny reviewed prototype.',tasks:[taskDefinition,{...taskDefinition,key:'prototype',module:'Design',title:'Build a small prototype',dependsOn:['reference']}]}};
@@ -273,3 +276,37 @@ assert.equal('user_id' in (await planCall(null,'alice')).data.plans[0],false);
 const rejectedPlan={...proposedPlan,id:crypto.randomUUID()};assert.equal((await planCall(rejectedPlan,'alice')).status,201);assert.equal((await planCall({...approvePlan,id:rejectedPlan.id,operation:'reject'},'alice')).status,200);assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM planned_tasks WHERE plan_id=?').get(rejectedPlan.id).n,0);
 const stalePlan={...proposedPlan,id:crypto.randomUUID()};assert.equal((await planCall(stalePlan,'alice')).status,201);const originalBatch=db.batch;db.batch=async statements=>{sqlite.prepare('UPDATE mission_plans SET revision=revision+1 WHERE id=?').run(stalePlan.id);return originalBatch(statements)};try{assert.equal((await planCall({...approvePlan,id:stalePlan.id},'alice')).status,409)}finally{db.batch=originalBatch};assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM planned_tasks WHERE plan_id=?').get(stalePlan.id).n,0);
 console.log('PASS: planning proposal permissions, edits, approvals, retries, Git snapshots, rejected/stale plans create no tasks, and accepted prerequisites unlock dependent work.');
+
+
+const teamApi=await moduleFrom(replaceTeam(replaceDB(readFileSync('app/api/team/route.ts','utf8'))).replace(/import \{\s*missionAccess\s*\} from '@\/db\/mission-access';/,'const missionAccess=globalThis.__access;').replace(/import \{[^}]+\} from '@\/db\/mission-git';/,'const {ensureRepository,readCommit,prepareCommit}=globalThis.__missionGit;').replace(/import \{\s*boundedBody\s*\} from '@\/lib\/artifacts';/,'const {boundedBody}=globalThis.__uploadUtils;'));
+async function teamCall(payload,actor,missionId=newId){const headers={'Content-Type':'application/json',Origin:'https://local.test'};if(actor){headers['oai-authenticated-user-id']=actor;headers['oai-authenticated-user-email']=actor+'@example.test';headers['oai-authenticated-user-full-name']=actor;}const r=await teamApi[payload?'POST':'GET'](new Request('https://local.test/api/team?mission='+missionId,{method:payload?'POST':'GET',headers,body:payload?JSON.stringify(payload):undefined}));return {status:r.status,data:await r.json()}}
+assert.equal((await teamCall({mission:newId,operation:'join'})).status,401);
+assert.equal((await teamCall({mission:newId,operation:'join'},'bob')).status,200);
+assert.equal((await teamCall({mission:newId,operation:'join'},'bob')).status,200);
+let teamState=(await teamCall(null,'alice')).data;const bobMember=teamState.members.find(m=>m.name==='bob').id;assert.equal(teamState.members.length,1);assert.equal('user_id' in teamState.members[0],false);
+const role={mission:newId,operation:'lead',module:'Research',memberId:bobMember,revision:0};
+assert.equal((await teamCall(role,'bob')).status,403);assert.equal((await teamCall({...role,memberId:'not-a-member'},'alice')).status,400);assert.equal((await teamCall(role,'alice')).status,200);assert.equal((await teamCall(role,'alice')).status,409);
+assert.equal((await teamCall({mission:newId,operation:'leave'},'bob')).status,409);
+const researchPlan={...proposedPlan,id:crypto.randomUUID(),body:{...proposedPlan.body,tasks:[taskDefinition]}};assert.equal((await planCall(researchPlan,'bob')).status,201);
+assert.equal((await planCall({...approvePlan,operation:'edit',id:researchPlan.id,body:{...researchPlan.body,tasks:[{...taskDefinition,module:'Gameplay'}]}},'bob')).status,403);
+const scopedDecision=await planCall({...approvePlan,id:researchPlan.id},'bob');assert.equal(scopedDecision.status,200,JSON.stringify(scopedDecision.data));
+const researchAction=sqlite.prepare('SELECT action_id FROM planned_tasks WHERE plan_id=?').get(researchPlan.id).action_id;
+assert.equal((await actionCall({operation:'claim',id:researchAction,eventId:crypto.randomUUID(),mission:newId,revision:1},'alice')).status,200);
+assert.equal((await actionCall({operation:'submit',id:researchAction,eventId:crypto.randomUUID(),mission:newId,revision:2,body:'A reviewed reference brief for this small milestone.'},'alice')).status,200);
+assert.equal((await actionCall({operation:'accept',id:researchAction,eventId:crypto.randomUUID(),mission:newId,revision:3,body:'Accepted within my assigned research scope.'},'bob')).status,200);
+assert.equal((await actionCall({operation:'submit',id:prototypeAction,eventId:crypto.randomUUID(),mission:newId,revision:2,body:'A completed prototype awaiting the design lead.'},'bob')).status,200);
+assert.equal((await actionCall({operation:'accept',id:prototypeAction,eventId:crypto.randomUUID(),mission:newId,revision:3,body:'Attempt to review work outside my research role.'},'bob')).status,403);
+const crossPlan={...proposedPlan,id:crypto.randomUUID()};assert.equal((await planCall(crossPlan,'bob')).status,201);assert.equal((await planCall({...approvePlan,id:crossPlan.id},'bob')).status,403);
+const racePlan={...researchPlan,id:crypto.randomUUID()};assert.equal((await planCall(racePlan,'bob')).status,201);
+const teamBatch=db.batch;db.batch=async statements=>{sqlite.prepare('UPDATE mission_leads SET member_id=NULL,revision=revision+1 WHERE mission=? AND module=?').run(newId,'research');return teamBatch(statements)};try{assert.equal((await planCall({...approvePlan,id:racePlan.id},'bob')).status,409)}finally{db.batch=teamBatch}
+assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM planned_tasks WHERE plan_id=?').get(racePlan.id).n,0);
+assert.equal((await planCall({...approvePlan,id:racePlan.id},'bob')).status,403);
+assert.equal((await teamCall({mission:newId,operation:'leave'},'bob')).status,200);
+assert.equal((await teamCall({...role,revision:2},'alice')).status,400);
+assert.equal((await teamCall({mission:newId,operation:'join'},'bob')).status,200);assert.equal((await teamCall({...role,revision:2},'alice')).status,200);assert.equal((await teamCall({...role,memberId:null,revision:3},'alice')).status,200);
+const teamFiles=(await globalThis.__missionGit.readCommit((await gitInfo(newId)).repository.head)).files;assert.equal(JSON.parse(teamFiles['mission-team.json']).subdivisions.find(s=>s.module==='research').lead,null);
+assert.equal(globalThis.__workspaceFiles.validWorkspacePath('mission-team.json'),false);
+console.log('PASS: explicit membership, owner-only delegation, scoped planning and task reviews, forbidden scope changes, role revocation during approval, inactive member rejection, and Git-recorded roles.');
+assert.equal((await teamCall({mission:'mahabharata',operation:'join'},'new-member','mahabharata')).status,200);assert.equal((await myCall('new-member')).data.missions.find(m=>m.id==='mahabharata').joined,true);assert.equal((await teamCall({mission:'mahabharata',operation:'leave'},'new-member','mahabharata')).status,200);assert.equal((await myCall('new-member')).data.missions.length,0);
+assert.equal((await teamCall({mission:newId,operation:'join'},'new-member')).status,200);assert.equal((await myCall('new-member')).data.missions.find(m=>m.id===newId).joined,true);
+console.log('PASS: explicit community membership appears in My missions and leaving removes membership-only entries.');

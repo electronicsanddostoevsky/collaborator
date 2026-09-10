@@ -254,7 +254,12 @@ export default function Home() {
                   Describe a rough 3D asset, let your local model and Blender
                   make a draft, and direct the next iteration.
                 </p>
-                <a className="primary" href="/missions/mahabharata/plan">Plan the next milestone ↗</a>
+                <a className="text-button" href="/missions/mahabharata/team">
+                  Community and leads ↗
+                </a>
+                <a className="primary" href="/missions/mahabharata/plan">
+                  Plan the next milestone ↗
+                </a>
                 <a className="primary" href="/workshop">
                   Open the Blender workshop ↗
                 </a>

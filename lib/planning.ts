@@ -31,6 +31,8 @@ export function validPlan(value: unknown): value is WorkPlan {
       !t ||
       !key(t.key) ||
       !short(t.module, 2, 80) ||
+      t.module !== t.module.trim() ||
+      /[\x00-\x1f\x7f]/.test(t.module) ||
       !short(t.title, 5, 120) ||
       !short(t.brief, 10, 1200) ||
       !short(t.inputs, 3, 500) ||

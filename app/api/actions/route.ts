@@ -1,7 +1,10 @@
 import { database } from '@/db/client';
 import { missionAccess } from '@/db/mission-access';
 import { actionKinds, actionEfforts, actionLink } from '@/lib/actions';
+import { leadScopes, coversModules, scopeGuard } from '@/db/team-access';
+import { moduleKey } from '@/lib/teams';
 type Row = {
+  module?: string | null;
   id: string;
   mission: string;
   creator_id: string;
@@ -37,10 +40,16 @@ export async function GET(req: Request) {
       )
       .bind(mission)
       .all<Row>();
+    const scopes = await leadScopes(mission, access.id);
     const actions = rows.results.map(
       ({ creator_id, assignee_id, last_event, ...a }) => ({
         ...a,
         mine: !!access.id && assignee_id === access.id,
+        canReview: coversModules(
+          access.owner,
+          scopes,
+          a.module ? [a.module] : [],
+        ),
       }),
     );
     const action = query.get('action');
@@ -90,8 +99,7 @@ export async function POST(req: Request) {
     if (!d || !uuid(d.id) || !uuid(d.eventId) || typeof d.mission !== 'string')
       return json({ error: 'Invalid action.' }, 400);
     const access = await missionAccess(req, d.mission);
-    if (!access)
-      return json({ error: 'Mission not found.' }, 404);
+    if (!access) return json({ error: 'Mission not found.' }, 404);
     const db = database(),
       now = new Date().toISOString();
     const existing = await db
@@ -190,6 +198,12 @@ export async function POST(req: Request) {
       .bind(d.id, d.mission)
       .first<Row>();
     if (!a) return json({ error: 'Action not found.' }, 404);
+    const planned = await db
+      .prepare('SELECT module FROM planned_tasks WHERE action_id=?')
+      .bind(a.id)
+      .first<{ module: string }>();
+    const scopes = await leadScopes(d.mission, access.id),
+      reviewOperation = ['accept', 'revise'].includes(d.operation);
     if (!Number.isInteger(d.revision) || a.revision !== d.revision)
       return json(
         { error: 'This action changed. Refresh before trying again.' },
@@ -210,8 +224,21 @@ export async function POST(req: Request) {
       );
     switch (d.operation) {
       case 'claim':
-        if (await db.prepare("SELECT p.action_id FROM planned_tasks p, json_each(p.dependencies) dep LEFT JOIN mission_actions required ON required.id=dep.value WHERE p.action_id=? AND (required.id IS NULL OR required.status!='done') LIMIT 1").bind(a.id).first())
-          return json({error:'This task depends on work that has not been accepted yet.'},409);
+        if (
+          await db
+            .prepare(
+              "SELECT p.action_id FROM planned_tasks p, json_each(p.dependencies) dep LEFT JOIN mission_actions required ON required.id=dep.value WHERE p.action_id=? AND (required.id IS NULL OR required.status!='done') LIMIT 1",
+            )
+            .bind(a.id)
+            .first()
+        )
+          return json(
+            {
+              error:
+                'This task depends on work that has not been accepted yet.',
+            },
+            409,
+          );
         if (a.status !== 'open')
           return json({ error: 'Someone has already taken this action.' }, 409);
         status = 'doing';
@@ -250,9 +277,14 @@ export async function POST(req: Request) {
         break;
       case 'accept':
       case 'revise':
-        if (!access.owner)
+        if (
+          !coversModules(access.owner, scopes, planned ? [planned.module] : [])
+        )
           return json(
-            { error: 'Only the mission creator can review this result.' },
+            {
+              error:
+                'Only the mission owner or this subdivision’s lead can review this result.',
+            },
             403,
           );
         if (a.status !== 'review')
@@ -276,7 +308,8 @@ export async function POST(req: Request) {
     const result = await db.batch([
       db
         .prepare(
-          'UPDATE mission_actions SET status=?,assignee_id=?,assignee_name=?,revision=revision+1,last_event=?,updated_at=? WHERE id=? AND mission=? AND revision=?',
+          'UPDATE mission_actions SET status=?,assignee_id=?,assignee_name=?,revision=revision+1,last_event=?,updated_at=? WHERE id=? AND mission=? AND revision=? AND ' +
+            scopeGuard,
         )
         .bind(
           status,
@@ -287,6 +320,12 @@ export async function POST(req: Request) {
           a.id,
           d.mission,
           a.revision,
+          Number(!reviewOperation || access.owner),
+          JSON.stringify([
+            planned ? moduleKey(planned.module) : '__no_delegated_scope__',
+          ]),
+          d.mission,
+          access.id,
         ),
       db
         .prepare(

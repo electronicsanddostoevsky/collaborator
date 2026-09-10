@@ -41,7 +41,12 @@ export default function Files({ mission }: { mission: string }) {
   }, [load]);
   const editable =
     !!data?.canEdit &&
-    !['mission.json', 'mission-tools.json', 'mission-plan.json'].includes(selected);
+    ![
+      'mission.json',
+      'mission-tools.json',
+      'mission-plan.json',
+      'mission-team.json',
+    ].includes(selected);
   const dirty =
     selected === '__new__'
       ? !!content || !!path
