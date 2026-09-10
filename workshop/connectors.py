@@ -41,4 +41,5 @@ def execute_api(job,folder):
     (folder/'result.json').write_text(json.dumps(value,indent=2),encoding='utf-8')
     with zipfile.ZipFile(folder/'artifact.zip','w',zipfile.ZIP_DEFLATED) as bundle:
         bundle.write(folder/'result.json','result.json')
+        if (folder/'inputs.json').is_file():bundle.write(folder/'inputs.json','inputs.json')
         bundle.writestr('job.json',json.dumps({**job,'status':'ready'}))

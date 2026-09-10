@@ -20,6 +20,16 @@ export default function PlatformHistory() {
         <div className="mission-timeline">
           <article className="timeline-item">
             <span className="small-label">10 SEPTEMBER 2026</span>
+            <h2>Local work can carry the project’s context</h2>
+            <p className="post-body">
+              Task runs save a mission text snapshot and provide bounded
+              excerpts to the local agent. The complete notes and the excerpt
+              used travel with the result, while review feedback helps direct
+              the next iteration. Binary assets still need separate handling.
+            </p>
+          </article>
+          <article className="timeline-item">
+            <span className="small-label">10 SEPTEMBER 2026</span>
             <h2>From agreed task to reviewed result</h2>
             <p className="post-body">
               Open a claimed task in its workshop, create a local result, and

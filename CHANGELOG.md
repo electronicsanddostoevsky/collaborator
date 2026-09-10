@@ -1,5 +1,13 @@
 # Collaborator platform history
 
+## 2026-09-10 — Saved project context for local work
+
+- Fetch the exact mission text snapshot when starting a claimed task, save it locally as data, and include it in result bundles. Workspace filenames are never extracted or executed.
+- Feed bounded reference excerpts to the Blender agent and preserve the exact excerpt alongside the complete snapshot. Fixed API connections retain the snapshot as provenance without changing their request.
+- Include approved input/output descriptions and latest review feedback in the editable task brief; show full details in the workshop.
+- A real Qwen3:8b and Blender run completed in nine seconds with inputs and editable files preserved. Visual inspection found orientation problems: this validates context transport, not output quality.
+- Binary input retrieval, reusable scene import, worker leases, and cross-machine execution remain pending. Snapshot identifiers and hashes are provenance declarations, not remote execution attestation.
+
 ## 2026-09-10 — Task-linked local contributions
 
 - Open claimed work in a task-specific workshop with its brief, acceptance criteria, declared mission revision, and approved tools.

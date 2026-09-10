@@ -1,6 +1,6 @@
 import { database } from '@/db/client';
 import { missionAccess } from '@/db/mission-access';
-import { ensureRepository } from '@/db/mission-git';
+import { ensureRepository, readCommit } from '@/db/mission-git';
 const json = (v: unknown, status = 200) =>
   Response.json(v, { status, headers: { 'Cache-Control': 'no-store' } });
 export async function GET(req: Request) {
@@ -41,23 +41,42 @@ export async function GET(req: Request) {
       )
       .bind(id)
       .first<{ task_key: string; module: string; body: string }>();
-    const tools = planned
+    const definition = planned
       ? JSON.parse(planned.body).tasks.find(
           (t: { key: string }) => t.key === planned.task_key,
-        )?.tools || []
-      : [];
+        )
+      : null;
+    const tools = definition?.tools || [];
     const repo = await ensureRepository(mission);
+    const snapshot = await readCommit(repo.head);
+    const review = await db
+      .prepare(
+        "SELECT body FROM action_events WHERE action_id=? AND kind='revise' ORDER BY revision DESC LIMIT 1",
+      )
+      .bind(id)
+      .first<{ body: string }>();
     return json({
       id: task.id,
       title: task.title,
       revision: task.revision,
       inputHead: repo.head,
+      snapshot: { head: repo.head, files: snapshot.files },
       module: planned?.module || null,
       tools,
+      inputs: definition?.inputs || '',
+      outputs: definition?.outputs || '',
+      feedback: review?.body || '',
       prompt:
-        task.brief.slice(0, 1800) +
+        task.brief.slice(0, 900) +
         '\n\nAcceptance criteria: ' +
-        task.done_when,
+        task.done_when.slice(0, 700) +
+        (definition?.inputs
+          ? '\n\nInputs: ' + definition.inputs.slice(0, 300)
+          : '') +
+        (definition?.outputs
+          ? '\n\nOutput: ' + definition.outputs.slice(0, 300)
+          : '') +
+        (review?.body ? '\n\nLatest review: ' + review.body.slice(0, 350) : ''),
     });
   } catch {
     return json({ error: 'Task context could not be loaded.' }, 503);

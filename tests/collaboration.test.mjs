@@ -313,7 +313,7 @@ assert.equal((await teamCall({mission:newId,operation:'join'},'new-member')).sta
 console.log('PASS: explicit community membership appears in My missions and leaving removes membership-only entries.');
 
 
-const contextApi=await moduleFrom(replaceDB(readFileSync('app/api/task-context/route.ts','utf8')).replace(/import \{\s*missionAccess\s*\} from '@\/db\/mission-access';/,'const missionAccess=globalThis.__access;').replace(/import \{[^}]+\} from '@\/db\/mission-git';/,'const {ensureRepository}=globalThis.__missionGit;'));
+const contextApi=await moduleFrom(replaceDB(readFileSync('app/api/task-context/route.ts','utf8')).replace(/import \{\s*missionAccess\s*\} from '@\/db\/mission-access';/,'const missionAccess=globalThis.__access;').replace(/import \{[^}]+\} from '@\/db\/mission-git';/,'const {ensureRepository,readCommit}=globalThis.__missionGit;'));
 async function taskContext(actor,task){const headers={};if(actor){headers['oai-authenticated-user-id']=actor;headers['oai-authenticated-user-email']=actor+'@example.test'}const r=await contextApi.GET(new Request('https://local.test/api/task-context?mission='+newId+'&task='+task,{headers}));return {status:r.status,data:await r.json()}}
 const artPlan={...proposedPlan,id:crypto.randomUUID(),body:{...proposedPlan.body,tasks:[{...taskDefinition,module:'Art',tools:['blender']}]}};assert.equal((await planCall(artPlan,'alice')).status,201);assert.equal((await planCall({...approvePlan,id:artPlan.id},'alice')).status,200);
 const artAction=sqlite.prepare('SELECT action_id FROM planned_tasks WHERE plan_id=?').get(artPlan.id).action_id;
@@ -321,7 +321,7 @@ assert.equal((await taskContext(null,artAction)).status,401);assert.equal((await
 assert.equal((await teamCall({mission:newId,operation:'lead',module:'Art',memberId:bobMember,revision:0},'alice')).status,200);
 assert.equal((await teamCall({mission:newId,operation:'join'},'charlie')).status,200);
 assert.equal((await actionCall({operation:'claim',id:artAction,eventId:crypto.randomUUID(),mission:newId,revision:1},'charlie')).status,200);
-const artContext=(await taskContext('charlie',artAction)).data;assert.equal(artContext.revision,2);assert.deepEqual(artContext.tools,['blender']);
+const artContext=(await taskContext('charlie',artAction)).data;assert.equal(artContext.revision,2);assert.deepEqual(artContext.tools,['blender']);assert.equal(artContext.snapshot.head,artContext.inputHead);assert.deepEqual(artContext.snapshot.files,(await globalThis.__missionGit.readCommit(artContext.inputHead)).files);
 const linkedId=crypto.randomUUID();
 async function linkedUpload(actor,id,context,overrides={}){const headers={Origin:'https://local.test','oai-authenticated-user-id':actor,'oai-authenticated-user-email':actor+'@example.test'};const q=new URLSearchParams({mission:newId,id,prompt:'A task-linked Blender blockout for the approved milestone.',model:'local-test',tool:'blender',taskId:context.id,taskRevision:String(context.revision),inputHead:context.inputHead,...overrides});const r=await workshopApi.POST(new Request('https://local.test/api/workshop?'+q,{method:'POST',headers,body:new Uint8Array([80,75,3,4,1])}));return {status:r.status,data:await r.json()}}
 assert.equal((await linkedUpload('bob',linkedId,artContext)).status,409);assert.equal((await linkedUpload('charlie',linkedId,artContext,{inputHead:'f'.repeat(40)})).status,400);assert.equal((await linkedUpload('charlie',linkedId,artContext,{tool:'unreal'})).status,400);

@@ -12,7 +12,7 @@ Updated 10 September 2026. This is a prioritized backlog, not a claim that the l
 
 ## Prioritized next changes
 
-Task-linked contributions are implemented: claimed tasks open a scoped workshop, retain declared input revisions, and submit artifacts for scoped lead review. Acceptance updates the task and mission Git together; requested changes reopen work. Automatic workspace input retrieval, shared worker leases, and the real multi-contributor trial remain pending.
+Task-linked contributions are implemented: claimed tasks open a scoped workshop, preserve mission text snapshots, and submit artifacts for scoped lead review. Acceptance updates the task and mission Git together; requested changes reopen work. Binary input retrieval, shared worker leases, and the real multi-contributor trial remain pending.
 
 | ID | Priority / state | Change | Definition of done | Dependency / challenge |
 | --- | --- | --- | --- | --- |
@@ -76,4 +76,10 @@ Members can explicitly join a mission and see it in My missions. The owner remai
 
 A delegated lead may edit or decide a plan only when every task is in a subdivision they lead. The same scope controls task-result acceptance and requests for changes. Permission is checked again in the write transaction so revocation cannot be bypassed by a decision already in flight. Members holding a lead role must have it revoked before leaving. Leaving the member list does not release existing work or remove separate follows.
 
-Tests cover cross-scope denial, forbidden scope changes, owner-only delegation, inactive members, revocation races, Git snapshots and My missions. This pilot allows 200 active members and 40 subdivisions per mission. Site access invitations remain separate from in-app membership. Workshop artifact reviews are still owner-only until artifacts are connected to scoped tasks.
+Tests cover cross-scope denial, forbidden scope changes, owner-only delegation, inactive members, revocation races, Git snapshots and My missions. This pilot allows 200 active members and 40 subdivisions per mission. Site access invitations remain separate from in-app membership. Linked workshop artifact reviews now enforce task subdivision scope; unlinked experiments remain owner-reviewed.
+
+## Project context in local runs — 10 September 2026
+
+The workshop saves an exact text snapshot from the selected mission Git head and passes bounded excerpts to local Blender generation. Both the full snapshot and the model-facing excerpt travel with the result bundle. Latest task review feedback and expected inputs/outputs appear in the editable brief. Text is retained as data; workspace paths are not executed. Binary asset retrieval and scene imports remain future work.
+
+A real local run verified snapshot preservation and Blender/GLB output, but visual review found incorrect orientation. W-02 remains unresolved. Source revision and content hashes document declared inputs; they are not proof that another contributor's machine performed a claimed computation.

@@ -8,9 +8,17 @@ import companion
 from unittest.mock import patch
 import uuid
 import connectors
+from inputs import validate_snapshot,reference_excerpt
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 
 class WorkshopTests(unittest.TestCase):
+    def test_data_only_snapshot(self):
+        snapshot={'head':'a'*40,'files':{'mission.json':'A community game','../../danger.py':'Never execute this data','lore.md':'x'*60000}}
+        self.assertEqual(json.loads(validate_snapshot(snapshot,'a'*40)),snapshot)
+        self.assertLess(len(reference_excerpt(snapshot)),6500)
+        with self.assertRaises(ValueError):validate_snapshot(snapshot,'b'*40)
+        with self.assertRaises(ValueError):validate_snapshot({'head':'a'*40,'files':{'mission.json':'x'*65537}},'a'*40)
+        with self.assertRaises(ValueError):validate_snapshot({'head':'a'*40,'files':{'mission.json':[]}},'a'*40)
     def test_planning_returns_data_without_running_project_tools(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(companion,'RUNS',Path(directory)), patch.object(companion,'generate_plan',return_value={'summary':'A bounded proposal','tasks':[]}), patch.object(companion,'execute_api') as api, patch.object(companion.subprocess,'Popen') as process:
             companion.CANCEL.clear()
@@ -60,10 +68,14 @@ class WorkshopTests(unittest.TestCase):
                 except HTTPError as e:return e.code,json.load(e)
             try:
                 data={'id':str(uuid.uuid4()),'model':'test','prompt':'Make a rough object.','taskId':str(uuid.uuid4()),'taskRevision':1,'inputHead':'a'*40}
+                data['snapshot']={'head':'a'*40,'files':{'mission.json':'A community project','../../outside.py':'data, not executable'}}
                 self.assertEqual(post('/run',{**data,'taskRevision':True})[0],400)
                 self.assertEqual(post('/run',{**data,'inputHead':'not-a-head'})[0],400)
                 self.assertEqual(post('/run',data)[0],201)
+                self.assertEqual(json.loads((Path(directory)/data['id']/'inputs.json').read_text())['files']['../../outside.py'],'data, not executable')
+                self.assertFalse((Path(directory).parent/'outside.py').exists())
                 self.assertEqual(post('/run',data)[0],200)
+                self.assertEqual(post('/run',{**data,'snapshot':{'head':'a'*40,'files':{'mission.json':'Different data'}}})[0],409)
                 self.assertEqual(post('/run',{**data,'taskRevision':2})[0],409)
                 self.assertEqual(post('/run',{**data,'taskId':str(uuid.uuid4())})[0],409)
                 (Path(directory)/data['id']/'scene.json').write_text('{}')

@@ -32,6 +32,7 @@ type Job = {
   parent?: string;
 };
 type Status = {
+  projectInputs?: boolean;
   taskContext?: boolean;
   tools?: Capability[];
   version?: number;
@@ -198,6 +199,10 @@ export default function Workshop({
     title: string;
     revision: number;
     inputHead: string;
+    snapshot: { head: string; files: Record<string, string> };
+    inputs: string;
+    outputs: string;
+    feedback: string;
     prompt: string;
     tools: string[];
   };
@@ -469,10 +474,41 @@ export default function Workshop({
             snapshot. Sharing a result sends the task for review.
           </p>
           {taskContext && (
-            <p>
-              Task revision {taskContext.revision} · Required tools:{' '}
-              {taskContext.tools.join(', ') || 'Choose a suitable mission tool'}
-            </p>
+            <>
+              <p>
+                Task revision {taskContext.revision} · Required tools:{' '}
+                {taskContext.tools.join(', ') ||
+                  'Choose a suitable mission tool'}
+              </p>
+              <details>
+                <summary>Project context for this run</summary>
+                <p>
+                  The complete text snapshot is saved with your local result.
+                  The model receives bounded excerpts; binary assets are not
+                  downloaded or imported.
+                </p>
+                <p>
+                  {Object.keys(taskContext.snapshot.files).length} text files ·{' '}
+                  {taskContext.inputHead.slice(0, 8)}
+                </p>
+                {taskContext.inputs && (
+                  <p>
+                    <strong>Inputs:</strong> {taskContext.inputs}
+                  </p>
+                )}
+                {taskContext.outputs && (
+                  <p>
+                    <strong>Expected output:</strong> {taskContext.outputs}
+                  </p>
+                )}
+                {taskContext.feedback && (
+                  <blockquote>
+                    <strong>Latest review</strong>
+                    <p>{taskContext.feedback}</p>
+                  </blockquote>
+                )}
+              </details>
+            </>
           )}
           <a className="text-button" href={'/missions/' + mission + '/plan'}>
             Return to the task board ↗
@@ -510,7 +546,7 @@ export default function Workshop({
               e.preventDefault();
               act(async () => {
                 const context = await readTask();
-                if (context && !status?.taskContext)
+                if (context && (!status?.taskContext || !status?.projectInputs))
                   throw Error(
                     'Restart with the updated workshop download to support task-linked runs.',
                   );
@@ -529,6 +565,7 @@ export default function Workshop({
                         taskId: context.id,
                         taskRevision: context.revision,
                         inputHead: context.inputHead,
+                        snapshot: context.snapshot,
                       }
                     : {}),
                 });
