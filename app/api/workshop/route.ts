@@ -16,6 +16,7 @@ type Artifact = {
   sha256: string;
   status: string;
   created_at: string;
+  preview_key: string | null;
 };
 export async function GET(req: Request) {
   if (
@@ -37,13 +38,22 @@ export async function GET(req: Request) {
         .bind(id, mission)
         .first<Artifact>();
       if (!item) return json({ error: 'Artifact not found.' }, 404);
-      const file = await bucket().get(item.object_key);
+      const preview = q.get('preview') === '1';
+      if (preview && !item.preview_key)
+        return json({ error: 'No preview was shared.' }, 404);
+      const file = await bucket().get(
+        preview ? item.preview_key! : item.object_key,
+      );
       if (!file) return json({ error: 'File temporarily unavailable.' }, 503);
       return new Response(file.body, {
         headers: {
-          'Content-Type': 'application/octet-stream',
+          'Content-Type': preview ? 'image/png' : 'application/octet-stream',
           'Content-Disposition':
-            'attachment; filename="workshop-' + item.id + '.zip"',
+            (preview
+              ? 'inline; filename="preview-'
+              : 'attachment; filename="workshop-') +
+            item.id +
+            (preview ? '.png"' : '.zip"'),
           'X-Content-Type-Options': 'nosniff',
           'Cache-Control': 'private, no-store',
           'Content-Security-Policy': "sandbox; default-src 'none'",
@@ -52,7 +62,7 @@ export async function GET(req: Request) {
     }
     const rows = await database()
       .prepare(
-        "SELECT id,author,prompt,model,size,sha256,status,created_at FROM workshop_artifacts WHERE mission=? AND status!='uploading' ORDER BY created_at DESC LIMIT 100",
+        "SELECT id,author,prompt,model,size,sha256,status,created_at,feedback,reviewer,reviewed_at,(preview_key IS NOT NULL) AS hasPreview FROM workshop_artifacts WHERE mission=? AND status!='uploading' ORDER BY created_at DESC LIMIT 100",
       )
       .bind(mission)
       .all();
@@ -78,7 +88,53 @@ export async function POST(req: Request) {
     const access = await missionAccess(req, mission);
     if (!access) return json({ error: 'Mission not found.' }, 404);
     const db = database();
-    if (q.get('action') === 'accept') {
+    if (q.get('action') === 'preview') {
+      const item = await db
+        .prepare('SELECT * FROM workshop_artifacts WHERE id=? AND mission=?')
+        .bind(id, mission)
+        .first<Artifact>();
+      if (!item || item.user_id !== access.id)
+        return json(
+          { error: 'Only the contributor can share this preview.' },
+          403,
+        );
+      if (item.preview_key) return json({ saved: true });
+      if (item.status !== 'shared')
+        return json({ error: 'Previews must be shared before review.' }, 409);
+      let bytes: Uint8Array;
+      try {
+        bytes = await boundedBody(req, 1048576);
+      } catch {
+        return json({ error: 'Preview must be a PNG under 1 MB.' }, 413);
+      }
+      if (![137, 80, 78, 71, 13, 10, 26, 10].every((v, i) => bytes[i] === v))
+        return json({ error: 'Use a PNG preview.' }, 400);
+      const key = 'workshop-previews/' + crypto.randomUUID();
+      await bucket().put(key, bytes);
+      try {
+        const r = await db
+          .prepare(
+            "UPDATE workshop_artifacts SET preview_key=? WHERE id=? AND status='shared' AND preview_key IS NULL AND (SELECT COALESCE(SUM(size+CASE WHEN preview_key IS NOT NULL THEN 1048576 ELSE 0 END),0) FROM workshop_artifacts WHERE user_id=?)+1048576<=104857600",
+          )
+          .bind(key, id, access.id)
+          .run();
+        if (!r.meta.changes) {
+          await bucket().delete(key);
+          return json(
+            {
+              error:
+                'Preview changed or storage allowance is full. Refresh to check.',
+            },
+            409,
+          );
+        }
+      } catch (e) {
+        await bucket().delete(key);
+        throw e;
+      }
+      return json({ saved: true }, 201);
+    }
+    if (['accept', 'revise'].includes(q.get('action') || '')) {
       if (!access.owner)
         return json(
           { error: 'Only the mission maintainer can accept a result.' },
@@ -90,7 +146,47 @@ export async function POST(req: Request) {
         .first<Artifact>();
       if (!item || item.status === 'uploading')
         return json({ error: 'Result not found.' }, 404);
-      if (item.status === 'accepted') return json({ saved: true });
+      const decision =
+        q.get('action') === 'accept' ? 'accepted' : 'changes_requested';
+      if (item.status === decision) return json({ saved: true });
+      if (item.status !== 'shared')
+        return json(
+          {
+            error:
+              'This review is already recorded. Share a new iteration for another review.',
+          },
+          409,
+        );
+      let review: { feedback?: unknown };
+      try {
+        review = JSON.parse(
+          new TextDecoder().decode(await boundedBody(req, 8192)),
+        );
+      } catch {
+        return json({ error: 'Add a review note.' }, 400);
+      }
+      if (
+        typeof review.feedback !== 'string' ||
+        review.feedback.trim().length < 5 ||
+        review.feedback.length > 2000
+      )
+        return json(
+          { error: 'Leave a review note between 5 and 2000 characters.' },
+          400,
+        );
+      const feedback = review.feedback.trim(),
+        reviewedAt = new Date().toISOString();
+      if (decision === 'changes_requested') {
+        const r = await db
+          .prepare(
+            "UPDATE workshop_artifacts SET status='changes_requested',feedback=?,reviewer=?,reviewed_at=? WHERE id=? AND status='shared'",
+          )
+          .bind(feedback, access.author, reviewedAt, id)
+          .run();
+        return r.meta.changes
+          ? json({ saved: true })
+          : json({ error: 'Review changed. Refresh.' }, 409);
+      }
       const repo = await ensureRepository(mission),
         prior = await readCommit(repo.head);
       const files = {
@@ -101,6 +197,7 @@ export async function POST(req: Request) {
             sha256: item.sha256,
             prompt: item.prompt,
             model: item.model,
+            review: { feedback, reviewer: access.author, reviewedAt },
             download:
               '/api/workshop?mission=' +
               encodeURIComponent(mission) +
@@ -137,9 +234,16 @@ export async function POST(req: Request) {
           .bind(commit.row.oid, mission, repo.head, id),
         db
           .prepare(
-            "UPDATE workshop_artifacts SET status='accepted' WHERE id=? AND status='shared' AND EXISTS(SELECT 1 FROM mission_repositories WHERE mission=? AND head=?)",
+            "UPDATE workshop_artifacts SET status='accepted',feedback=?,reviewer=?,reviewed_at=? WHERE id=? AND status='shared' AND EXISTS(SELECT 1 FROM mission_repositories WHERE mission=? AND head=?)",
           )
-          .bind(id, mission, commit.row.oid),
+          .bind(
+            feedback,
+            access.author,
+            reviewedAt,
+            id,
+            mission,
+            commit.row.oid,
+          ),
       ]);
       return result[1].meta.changes
         ? json({ saved: true })
@@ -185,7 +289,7 @@ export async function POST(req: Request) {
     const key = 'workshop/' + id;
     const reservation = await db
       .prepare(
-        "INSERT INTO workshop_artifacts (id,mission,user_id,author,prompt,model,object_key,size,sha256,status,created_at) SELECT ?,?,?,?,?,?,?,?,?,'uploading',? WHERE (SELECT COALESCE(SUM(size),0) FROM workshop_artifacts WHERE user_id=?)+?<=104857600",
+        "INSERT INTO workshop_artifacts (id,mission,user_id,author,prompt,model,object_key,size,sha256,status,created_at) SELECT ?,?,?,?,?,?,?,?,?,'uploading',? WHERE (SELECT COALESCE(SUM(size+CASE WHEN preview_key IS NOT NULL THEN 1048576 ELSE 0 END),0) FROM workshop_artifacts WHERE user_id=?)+?<=104857600",
       )
       .bind(
         id,

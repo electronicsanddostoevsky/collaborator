@@ -19,6 +19,19 @@ export default function PlatformHistory() {
         </p>
         <div className="mission-timeline">
           <article className="timeline-item">
+            <span className="small-label">10 SEPTEMBER 2026</span>
+            <h2>Direct, preview, refine</h2>
+            <p className="post-body">
+              The local Blender workshop now brings your brief, selected
+              preview, and iterations together. Share a preview and editable
+              result, receive a review note, and preserve accepted work in
+              mission history.
+            </p>
+            <a className="text-button" href="/workshop">
+              Open the workshop ↗
+            </a>
+          </article>
+          <article className="timeline-item">
             <span className="small-label">9 SEPTEMBER 2026</span>
             <h2>Independent ideas, shared progress</h2>
             <p className="post-body">
@@ -66,9 +79,43 @@ export default function PlatformHistory() {
             Each mission now has Git history for its definition and small
             working text files. Download a repository or fork from a recorded
             version while preserving files and ancestry. Large assets, remote
-            synchronization, and agent execution are the next layer.
+            synchronization, and shared agent scheduling are the next layer. The
+            local Blender workshop is available now.
           </p>
         </div>
+        <section className="aside-card">
+          <span className="eyebrow">FUTURE CHANGE LOG · PLANNED</span>
+          <h2>What we build next</h2>
+          <ol className="workshop-steps">
+            <li>
+              <strong>Connection and quality:</strong> easier setup, browser
+              compatibility checks, and more reliable first drafts.
+            </li>
+            <li>
+              <strong>Guided revisions:</strong> turn review feedback into new
+              iterations and bring workshops to every mission.
+            </li>
+            <li>
+              <strong>Unreal and richer assets:</strong> move from rough Blender
+              objects to reviewed assets and playable scenes.
+            </li>
+            <li>
+              <strong>Shared workers:</strong> durable queues, contributed
+              compute, explicit budgets, and storage management.
+            </li>
+            <li>
+              <strong>Physical projects and governance:</strong> CAD,
+              fabrication review, attribution, and community rules.
+            </li>
+          </ol>
+          <p>
+            These are planned integrations. The current workshop uses one local
+            computer and a local model.
+          </p>
+          <a className="text-button" href="/future-changes.md" download>
+            Download the detailed future change log ↗
+          </a>
+        </section>
         <a className="primary" href="/">
           Explore missions →
         </a>

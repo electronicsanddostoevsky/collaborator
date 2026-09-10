@@ -18,6 +18,6 @@ Before multi-worker scheduling, move job ownership into a durable queue with exp
 
 ## Verification and limits
 
-Unit tests cover schema rejection, origin/secret checks and persisted local jobs. Route tests cover upload authentication, retries, acceptance ownership and mission Git references. Full model generation and Blender rendering require installed dependencies and are not yet verified on this machine. Browser-to-loopback permission behavior has not been browser-tested. The UI reports connection errors and suggests using a regular browser when an embedded browser blocks local-network access.
+Unit tests cover schema rejection, origin/secret checks, persisted local jobs, duplicate requests and scoped cancellation. Route tests cover upload authentication, preview ownership/bytes, immutable reviews, retries, acceptance ownership and mission Git references. Full local Qwen3 8B generation and Blender 5.2 rendering have been exercised on this machine. Geometry quality still requires human review. Browser-to-loopback permission behavior has not been browser-tested. The UI reports connection errors and suggests using a regular browser when an embedded browser blocks local-network access.
 
 Shared uploads are contributor-supplied results, not cryptographically attested executions. Human review remains necessary. The first adapter supports primitive blockouts, not arbitrary game assets, rigging, animation or engineering validation.

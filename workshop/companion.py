@@ -45,7 +45,7 @@ def execute(job):
         prior=''
         if job.get('parent'):
             prior=' Previous scene: '+(RUNS/job['parent']/'scene.json').read_text(encoding='utf-8')
-        instruction='Create a rough Blender blockout. Return ONLY JSON with one objects array (1 to 48). Every object has name, shape (cube/sphere/cylinder/cone/torus), position [x,y,z] in -20..20, rotation [degrees x,y,z], scale [x,y,z] in 0.05..10, color [r,g,b] in 0..1. Z is up. No code, paths, lights or camera fields. Use primitive shapes to approximate the requested asset. Preserve prior scene where changes are not requested.'
+        instruction='Create a coherent Blender blockout. Return ONLY JSON with one objects array (1 to 48; prefer 8-16). Every object has name, shape (cube/sphere/cylinder/cone/torus), position [x,y,z] in -20..20, rotation [degrees x,y,z], scale [x,y,z] in 0.05..10, color [r,g,b] in 0..1. Coordinates: X left/right, Y forward/backward, Z UP. Every default cube is 2 units wide on ALL axes; scale means HALF extents for cubes, not dimensions. Default cylinders have radius 1 and length 2 ALONG LOCAL Z: wheel across X uses rotation [0,90,0] and scale [radius,radius,halfThickness]. Pole along Y uses rotation [90,0,0] and scale [radius,radius,halfLength]. Torus lies in local XY; rotate [0,90,0] for wheels across X. A horizontal platform uses small Z scale and nonzero Z position. Ground is Z=0. Keep all parts connected and wheels below the platform. Do not treat Y as up. No code, paths, lights or camera fields. Preserve previous scene coordinates and unchanged objects when revising. Return the complete scene, not a patch.'
         response=ollama('/api/chat',{'model':job['model'],'stream':False,'think':False,'format':'json','keep_alive':0,'options':{'num_predict':4096,'num_ctx':8192,'temperature':0.2},'messages':[{'role':'system','content':instruction},{'role':'user','content':job['prompt']+prior}]},timeout=240)
         if CANCEL.is_set(): raise InterruptedError()
         plan=validate(json.loads(response['message']['content']))
@@ -97,7 +97,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path=='/status':
             try: models=[m['name'] for m in ollama('/api/tags').get('models',[]) if not m.get('remote_host')];problem=''
             except Exception: models=[];problem='Start Ollama and install a local model.'
-            return self.respond({'blender':bool(blender()),'models':models,'problem':problem,'jobs':history(),'active':ACTIVE})
+            return self.respond({'version':2,'blender':bool(blender()),'models':models,'problem':problem,'jobs':history(),'active':ACTIVE})
         bits=self.path.split('/')
         if len(bits)==4 and bits[1]=='files' and bits[3] in ('preview.png','artifact.zip'):
             try: identifier=str(uuid.UUID(bits[2]))
@@ -114,7 +114,10 @@ class Handler(BaseHTTPRequestHandler):
             if not 0<length<=8192: raise ValueError('Request is too large.')
             d=json.loads(self.rfile.read(length))
             if self.path=='/cancel':
-                CANCEL.set();return self.respond({'stopping':True})
+                with LOCK:
+                    if d.get('id')!=ACTIVE or not ACTIVE:return self.respond({'error':'This run is no longer active.'},409)
+                    CANCEL.set()
+                return self.respond({'stopping':True})
             if self.path!='/run': return self.respond({'error':'Unknown operation'},404)
             if not isinstance(d.get('prompt'),str) or not 10<=len(d['prompt'])<=3000: raise ValueError('Describe your artifact in 10–3000 characters.')
             if not blender(): raise ValueError('Install Blender first.')
@@ -128,10 +131,13 @@ class Handler(BaseHTTPRequestHandler):
                 parent=str(uuid.UUID(parent))
                 if not (RUNS/parent/'scene.json').is_file(): raise ValueError('Previous scene unavailable.')
             with LOCK:
+                identifier=str(uuid.UUID(d['id']))
+                if (RUNS/identifier/'job.json').is_file():
+                    existing=json.loads((RUNS/identifier/'job.json').read_text())
+                    if any(existing.get(k)!=v for k,v in [('prompt',d['prompt']),('model',d['model']),('parent',parent)]):return self.respond({'error':'Run ID belongs to a different request.'},409)
+                    return self.respond(existing)
                 if ACTIVE: return self.respond({'error':'A job is already running.'},409)
                 if len(list(RUNS.glob('*/job.json')))>=100: raise ValueError('The local pilot has 100 retained runs. Archive old runs before continuing.')
-                identifier=str(uuid.UUID(d['id']))
-                if (RUNS/identifier/'job.json').is_file(): return self.respond(json.loads((RUNS/identifier/'job.json').read_text()))
                 job={'id':identifier,'prompt':d['prompt'],'model':d['model'],'parent':parent,'status':'queued','created':time.time()}
                 ACTIVE=job['id'];CANCEL.clear();save(job)
                 threading.Thread(target=execute,args=(job,),daemon=True).start()

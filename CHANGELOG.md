@@ -65,3 +65,11 @@ The Git commit history is the authoritative source history. These release notes 
 - Add stale-head protection, repeat-safe writes, safe portable filenames, size limits, and reversible file removal.
 - Preserve compatibility with the earlier single-file Git objects and verify multi-file clones and historical file recovery with native Git.
 - Keep files inert in the web interface. Binary workspaces, execution, remote synchronization, and reviewed merging remain future integrations.
+
+## 2026-09-10 — Workshop review and UI completion
+- Fix Blender material colors and clarify scene coordinate instructions.
+- Scope cancellation to the active run and make retries return the existing run.
+- Add immutable shared PNG previews, review notes, and changes-requested outcomes.
+- Refine the workshop around the creative brief, selected preview, and compact iteration history.
+- Add a public future-change log with priorities, acceptance criteria, and current limitations.
+- Verify the local model-to-Blender path; distinguish execution success from asset quality.

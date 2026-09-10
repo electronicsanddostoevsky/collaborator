@@ -38,6 +38,10 @@ def build(directory):
         obj.name=item['name'];obj.location=item['position'];obj.scale=item['scale']
         obj.rotation_euler=[math.radians(v) for v in item['rotation']]
         mat=bpy.data.materials.new(item['name']);mat.diffuse_color=(*item['color'],1)
+        mat.use_nodes=True
+        shader=mat.node_tree.nodes.get('Principled BSDF')
+        shader.inputs['Base Color'].default_value=(*item['color'],1)
+        shader.inputs['Roughness'].default_value=0.65
         obj.data.materials.append(mat)
     bpy.context.view_layer.update()
     points=[obj.matrix_world@Vector(c) for obj in bpy.context.scene.objects if obj.type=='MESH' for c in obj.bound_box]
