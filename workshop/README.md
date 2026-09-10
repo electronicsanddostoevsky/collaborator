@@ -6,8 +6,8 @@ This first connector makes primitive 3D blockouts with a local Ollama model and 
 
 1. Right-click **Install prerequisites.ps1** and choose **Run with PowerShell**, or install Blender, Ollama, and Python 3.10+ from their official websites. The helper asks before installing. Downloads require several GB of storage and internet access.
 2. Restart Ollama after setup. Its `OLLAMA_NO_CLOUD=1` setting disables cloud inference. In a new terminal run `ollama pull qwen3:8b`. A smaller local model may be needed on other computers.
-3. Double-click **Start workshop.cmd**. If Blender is installed in a custom location, set `BLENDER_PATH` to its executable before starting.
-4. Open Collaborator's workshop page, enter the pairing code displayed in the workshop window, and connect. Allow local-network access if the browser asks. If an embedded browser blocks it, use a regular browser.
+3. Double-click **Start workshop.cmd**, tick the local-access consent box, and choose **Start workshop** in the control window. If Blender is installed in a custom location, set `BLENDER_PATH` to its executable before starting.
+4. Open Collaborator's workshop page, use **Copy pairing code** in the control window and paste the code, and connect. Allow local-network access if the browser asks. If an embedded browser blocks it, use a regular browser.
 5. Choose a local model, describe a blockout, and run. Inspect the preview before sharing. The website never receives the pairing code except as an in-memory local connection credential; it is sent only to the loopback companion.
 
 ## Boundaries
@@ -28,3 +28,11 @@ Use the mission's workshop to declare required tools and select an available ope
 In Connect an HTTP API, enter a connection ID matching the mission requirement, a name, and a fixed HTTPS JSON URL (HTTP is permitted for loopback APIs). An optional bearer token is stored only in `.local-connectors.json` beside this companion. Protect that file as a credential file. Never publish it. Connections are fixed GET operations; the brief is a run note, not agent instructions for changing the endpoint. Responses are capped at 1 MB with no redirects. Downloaded data can be shared for mission review.
 
 New Blender runs include artifact.glb as well as artifact.blend. Existing runs remain unchanged.
+
+## Local control window
+
+The control window starts stopped and requires consent on each start. Stop workshop blocks new jobs, cancels active work, and waits for it to finish before closing the local server. During model inference this can take up to four minutes; fixed API reads time out after 30 seconds. Closing asks before stopping. Local results remain on disk, and every restart creates a fresh pairing code.
+
+A second launch cannot replace an existing workshop. Stop the earlier window (or command-line companion) first. After a PC restart, open Start workshop again and pair with the new code. No automatic login startup is installed. The command-line `python companion.py` path remains available for advanced users.
+
+This is a Python control window, not a signed installer. Windows lifecycle and consent tests pass; macOS/Linux packaging and browser permission flows still require testing.

@@ -81,3 +81,8 @@ The Git commit history is the authoritative source history. These release notes 
 - Add locally configured read-only JSON API connections, with fixed URLs, bounded responses and redirect rejection.
 - Scope local jobs and revision parents to their mission; reuse review feedback for local revisions.
 - Export GLB from new Blender runs. Unreal execution remains pending.
+
+## Local workshop control window — 10 September 2026
+- Explicit local consent, start/copy/stop controls, safe shutdown, fresh codes after restart, and retained results.
+- Windows exclusive listener prevents duplicate workshop instances; lifecycle and existing adapter tests pass.
+- Updated setup help; signed installation and browser compatibility testing remain pending.

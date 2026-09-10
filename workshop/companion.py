@@ -1,7 +1,7 @@
 """Loopback-only local workshop. Python 3.10+, Blender 4+, local Ollama."""
-import json, os, secrets, shutil, subprocess, threading, time, uuid, zipfile
+import json, os, secrets, shutil, socket, subprocess, threading, time, uuid, zipfile
 from pathlib import Path
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer as BaseThreadingHTTPServer
 from urllib.request import Request, urlopen, ProxyHandler, build_opener
 from urllib.parse import urlparse
 from scene import validate
@@ -11,8 +11,16 @@ ROOT=Path(__file__).resolve().parent
 RUNS=ROOT/'runs'; RUNS.mkdir(exist_ok=True)
 ORIGIN='https://make-exist-collaborator.kals19.chatgpt.site'
 TOKEN=secrets.token_urlsafe(24)
-LOCK=threading.Lock(); ACTIVE=None; CANCEL=threading.Event(); PROCESS=None
+LOCK=threading.Lock(); ACTIVE=None; CANCEL=threading.Event(); PROCESS=None; STOPPING=False
 HTTP=build_opener(ProxyHandler({}))
+
+class ThreadingHTTPServer(BaseThreadingHTTPServer):
+    # Windows SO_REUSEADDR permits a competing listener; reserve this endpoint.
+    allow_reuse_address = os.name != 'nt'
+    def server_bind(self):
+        if os.name == 'nt':
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
 
 def ollama(path, data=None, timeout=4):
     request=Request('http://127.0.0.1:11434'+path,data=json.dumps(data).encode() if data is not None else None,headers={'Content-Type':'application/json'})
@@ -154,6 +162,7 @@ class Handler(BaseHTTPRequestHandler):
                     existing=json.loads((RUNS/identifier/'job.json').read_text())
                     if any(existing.get(k)!=v for k,v in [('prompt',d['prompt']),('model',d['model']),('parent',parent)]) or existing.get('mission','mahabharata')!=mission or existing.get('tool','blender')!=tool:return self.respond({'error':'Run ID belongs to a different request.'},409)
                     return self.respond(existing)
+                if STOPPING:return self.respond({'error':'Workshop is stopping. Start it again before requesting work.'},409)
                 if ACTIVE: return self.respond({'error':'A job is already running.'},409)
                 if len(list(RUNS.glob('*/job.json')))>=100: raise ValueError('The local pilot has 100 retained runs. Archive old runs before continuing.')
                 job={'id':identifier,'prompt':d['prompt'],'model':d['model'],'parent':parent,'status':'queued','created':time.time(),'mission':mission,'tool':tool}

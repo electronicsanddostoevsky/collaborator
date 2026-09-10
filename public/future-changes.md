@@ -14,7 +14,7 @@ Updated 10 September 2026. This is a prioritized backlog, not a claim that the l
 
 | ID | Priority / state | Change | Definition of done | Dependency / challenge |
 | --- | --- | --- | --- | --- |
-| W-01 | Next / planned | Easier connection and reliable restart | Signed installer, launch shortcut, explicit local consent, supported-browser connection tests, reconnect after PC restart | Local-network browser permissions and installer signing; current manual pairing remains |
+| W-01 | Partial / local control window implemented | Easier connection and reliable restart | Signed installer, launch shortcut, explicit local consent, supported-browser connection tests, reconnect after PC restart | Local-network browser permissions and installer signing; current manual pairing remains |
 | W-02 | Next / planned | Better first-draft quality | A small evaluation set measures geometry, connected parts, orientation and instruction fidelity; compare models; show limitations before runs | A successful render does not establish a usable asset; current Qwen blockouts need supervision |
 | W-03 | Partial / remote originals pending | Review-guided agent revisions | Feed mission review notes into a new job with parent artifact identity; show before/after and preserve all originals | Current revision is initiated from the local original; remote contributors need artifact retrieval |
 | W-04 | Implemented | Workshop for every mission | Mission-scoped jobs, briefs and permissions across creative, physical-design and action missions | Mission routes and local jobs are scoped; requirements and fork inheritance are tested |
@@ -51,3 +51,9 @@ Roadmap updates:
 - W-01, W-02, W-05 and W-07 through W-11 remain planned. This release does not provide a signed installer, arbitrary tool automation, Unreal execution, a worker pool, paid budgets or manufacturing.
 
 Next technical priority: expand the connector contract to declared operations with parameter schemas, credential references, consent requirements and capability versions. Introduce remote scheduling only after authentication, leases, resource budgets and per-operation permissions are designed and tested. The current Python adapter core can run outside Windows with appropriate installed tools; non-Windows execution has not been tested here.
+
+## Easier local start and stop — 10 September 2026
+
+Implemented a consent-first control window with Start, Copy pairing code, and Stop. Restart preserves work and rotates credentials; stop blocks new jobs and drains cancellation before closing. Windows uses an exclusive local socket to prevent competing launches. Automated tests cover consent, duplicate launch, stale-code rejection, preserved history, and stop/restart.
+
+Still pending for W-01: a signed installer, OS shortcut registration, browser-to-loopback permission testing, and cross-platform packaging. No automatic startup is enabled.

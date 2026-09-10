@@ -686,8 +686,8 @@ export default function Workshop({
               {connected ? 'Workshop connected' : 'Connect your computer'}
             </summary>
             <p>
-              Start the workshop on this PC, then enter its temporary pairing
-              code.
+              Open Start workshop on this PC, allow access, then use Copy pairing
+              code in the local window and paste it here.
             </p>
             <label>
               Pairing code
@@ -738,13 +738,16 @@ export default function Workshop({
                   for the Mahabharata workflow.
                 </li>
                 <li>
-                  Double-click Start workshop and copy its code here. Allow
-                  local-network access if your browser asks.
+                  Double-click Start workshop, allow tool access, and choose
+                  Start workshop in the window. Copy its pairing code here.
+                  Allow local-network access if your browser asks.
                 </li>
               </ol>
               <p>
-                Already installed on this PC? Start the existing workshop. If an
-                embedded browser blocks connection, use a regular browser.
+                Keep the local window open while working. After restarting it,
+                reconnect with its new code; your saved work is retained. Stop
+                workshop ends local access. If an embedded browser blocks
+                connection, use a regular browser.
               </p>
             </details>
           </details>
