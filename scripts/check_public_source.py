@@ -10,14 +10,20 @@ def git(*args):
 
 bad = []
 count = 0
-for line in git('rev-list', '--objects', '--all').decode().splitlines():
-    oid, _, name = line.partition(' ')
-    if git('cat-file', '-t', oid).strip() != b'blob':
+objects = [line.partition(' ') for line in git('rev-list', '--objects', '--all').decode().splitlines()]
+batch = subprocess.run(['git', 'cat-file', '--batch'], input=('\n'.join(item[0] for item in objects)+'\n').encode(), stdout=subprocess.PIPE, check=True).stdout
+cursor = 0
+for oid, _, name in objects:
+    end = batch.index(b'\n', cursor)
+    header = batch[cursor:end].split()
+    size = int(header[2])
+    content = batch[end+1:end+1+size]
+    cursor = end+size+2
+    if header[1] != b'blob':
         continue
     count += 1
     if re.search(r'(^|/)(\.dev\.vars|\.env(?!\.example)|\.local-connectors|workshop-connection)|^workshop/runs/|^outputs/', name):
         bad.append(name + ' (private file path)')
-    content = git('cat-file', 'blob', oid)
     if re.search(rb'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk-proj-[A-Za-z0-9_-]{40,}', content):
         bad.append(name + ' (credential pattern)')
 if bad:
