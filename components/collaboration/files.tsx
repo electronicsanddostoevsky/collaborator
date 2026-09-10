@@ -39,7 +39,9 @@ export default function Files({ mission }: { mission: string }) {
       .then((d) => setContent(d.files['mission.json']))
       .catch((e) => setError(e.message));
   }, [load]);
-  const editable = !!data?.canEdit && selected !== 'mission.json';
+  const editable =
+    !!data?.canEdit &&
+    !['mission.json', 'mission-tools.json'].includes(selected);
   const dirty =
     selected === '__new__'
       ? !!content || !!path

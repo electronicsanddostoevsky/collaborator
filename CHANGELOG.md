@@ -73,3 +73,11 @@ The Git commit history is the authoritative source history. These release notes 
 - Refine the workshop around the creative brief, selected preview, and compact iteration history.
 - Add a public future-change log with priorities, acceptance criteria, and current limitations.
 - Verify the local model-to-Blender path; distinguish execution success from asset quality.
+
+## 2026-09-10 — Mission-specific tools and generic API adapter
+- Separate mission tool requirements from local agent models and available operations.
+- Keep Blender and Unreal as Mahabharata requirements; provide workshops for every mission.
+- Preserve tool requirements in Git and forks; enforce owner-only edits and optimistic revisions.
+- Add locally configured read-only JSON API connections, with fixed URLs, bounded responses and redirect rejection.
+- Scope local jobs and revision parents to their mission; reuse review feedback for local revisions.
+- Export GLB from new Blender runs. Unreal execution remains pending.

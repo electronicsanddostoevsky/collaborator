@@ -45,3 +45,5 @@ next-env.d.ts
 /tmp/
 workshop/runs/
 workshop/__pycache__/
+workshop/.local-connectors.json
+workshop/.local-connectors.tmp

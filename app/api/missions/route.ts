@@ -2,8 +2,10 @@ import { database } from '@/db/client';
 import { validateMission } from '@/lib/mission-input';
 import type { MissionRecord } from '@/db/missions';
 import { snapshotStatement } from '@/db/mission-revisions';
+import { defaultMissionTools } from '@/lib/mission-tools';
 import {
   ensureRepository,
+  readCommit,
   prepareCommit,
   missionDefinition,
   type Repo,
@@ -166,6 +168,15 @@ export async function POST(req: Request) {
         );
       if (!['allowed', 'closed'].includes(forkPolicy))
         return json({ error: 'Choose whether forks are allowed.' }, 400);
+      let inheritedFiles: Record<string, string> | undefined;
+      if (fork) {
+        inheritedFiles = { ...(await readCommit(fork.head)).files };
+        inheritedFiles['mission-tools.json'] ??= JSON.stringify(
+          { requirements: defaultMissionTools(fork.mission) },
+          null,
+          2,
+        );
+      }
       const commit = await prepareCommit(
         body.id,
         { mission: body.id, ...input, forkPolicy },
@@ -173,6 +184,7 @@ export async function POST(req: Request) {
         author,
         fork ? 'Fork mission from ' + fork.mission : 'Create mission',
         now,
+        inheritedFiles,
       );
       const results = await db.batch([
         db

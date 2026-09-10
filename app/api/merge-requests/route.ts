@@ -270,7 +270,11 @@ export async function POST(req: Request) {
       if (content === null) delete diff.files[change.path];
       else diff.files[change.path] = content;
     }
-    if (Object.keys(diff.files).length > 13)
+    if (
+      Object.keys(diff.files).filter(
+        (p) => !['mission.json', 'mission-tools.json'].includes(p),
+      ).length > 12
+    )
       return json(
         { error: 'Merging would exceed the workspace file limit.' },
         413,

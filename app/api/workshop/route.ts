@@ -208,7 +208,11 @@ export async function POST(req: Request) {
           2,
         ),
       };
-      if (Object.keys(files).length > 13)
+      if (
+        Object.keys(files).filter(
+          (p) => !['mission.json', 'mission-tools.json'].includes(p),
+        ).length > 12
+      )
         return json(
           {
             error:

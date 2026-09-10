@@ -14,8 +14,9 @@ export default function Page() {
         <span className="eyebrow">MAHABHARATA · LOCAL WORKSHOP</span>
         <h1>Describe it. Shape it.</h1>
         <p className="body-copy">
-          Direct a local AI model and Blender to make a rough 3D asset. Review
-          the preview, request changes, and share the editable result.
+          This mission needs Blender for assets and Unreal Engine for its
+          playable world. Connect available operations below; tools and agents
+          are separate capabilities.
         </p>
         <Workshop />
       </main>

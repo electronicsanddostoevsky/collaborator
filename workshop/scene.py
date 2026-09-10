@@ -58,6 +58,7 @@ def build(directory):
     scene.world.node_tree.nodes['Background'].inputs[0].default_value=(0.12,0.15,0.12,1)
     scene.render.image_settings.file_format='PNG';scene.render.filepath=str(root/'preview.png')
     bpy.ops.wm.save_as_mainfile(filepath=str(root/'artifact.blend'))
+    bpy.ops.export_scene.gltf(filepath=str(root/'artifact.glb'),export_format='GLB',export_cameras=False,export_lights=False)
     bpy.ops.render.render(write_still=True)
 
 if __name__=='__main__': build(sys.argv[sys.argv.index('--')+1])

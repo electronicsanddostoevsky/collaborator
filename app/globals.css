@@ -1978,3 +1978,37 @@ input[type='file']::file-selector-button {
     min-height: 230px;
   }
 }
+
+.tool-requirements {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.tool-requirements article {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.tool-requirements small {
+  display: block;
+  color: var(--muted-foreground);
+}
+.ws-api-result {
+  max-height: 540px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 20px;
+  background: #101810;
+  border-radius: 12px;
+  font:
+    14px/1.6 Consolas,
+    monospace;
+}
+.ws-run-controls {
+  flex-wrap: wrap;
+}
+.ws-run-controls label {
+  min-width: 180px;
+}

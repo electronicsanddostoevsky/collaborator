@@ -248,3 +248,8 @@ export const workshopArtifacts = sqliteTable(
     index('idx_workshop_user').on(t.userId),
   ],
 );
+export const missionToolsets = sqliteTable('mission_toolsets', {
+  mission: text('mission').primaryKey(),
+  requirements: text('requirements').notNull(),
+  revision: integer('revision').notNull(),
+});

@@ -18,6 +18,7 @@ export default function PlatformHistory() {
           here.
         </p>
         <div className="mission-timeline">
+          <article className="timeline-item"><span className="small-label">10 SEPTEMBER 2026</span><h2>The tools belong to the mission</h2><p className="post-body">Every mission can declare the applications and services it needs. Connected computers provide operations; agents provide assistance. Mahabharata retains Blender and Unreal, while other missions start without game-development defaults. Read-only HTTP APIs are now a second working adapter.</p></article>
           <article className="timeline-item">
             <span className="small-label">10 SEPTEMBER 2026</span>
             <h2>Direct, preview, refine</h2>

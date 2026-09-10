@@ -1,5 +1,15 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import MissionTools from './mission-tools';
+import type { ToolRequirement } from '@/lib/mission-tools';
+type Capability = {
+  id: string;
+  name: string;
+  operation: string;
+  available: boolean;
+  requiresAgent: boolean;
+  reason: string;
+};
 import {
   Select,
   SelectTrigger,
@@ -8,6 +18,8 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 type Job = {
+  mission?: string;
+  tool?: string;
   id: string;
   prompt: string;
   model: string;
@@ -17,6 +29,7 @@ type Job = {
   parent?: string;
 };
 type Status = {
+  tools?: Capability[];
   version?: number;
   blender: boolean;
   models: string[];
@@ -38,6 +51,7 @@ const endpoint = 'http://127.0.0.1:8765';
 const initial =
   'Make a rough two-wheeled wooden chariot with an open platform, front rail, and long forward pole. Use simple wooden shapes and bronze-colored wheel rims. This is a visual exploration, not a historically verified reconstruction.';
 const labels: Record<string, string> = {
+  running: 'Reading from the connected API',
   queued: 'Waiting to begin',
   planning: 'Planning the scene',
   rendering: 'Rendering in Blender',
@@ -54,15 +68,19 @@ async function result<T>(r: Response): Promise<T> {
   return d;
 }
 function Review({
+  mission,
   item,
   canAccept,
   busy,
   decide,
+  revise,
 }: {
+  mission: string;
   item: Shared;
   canAccept: boolean;
   busy: boolean;
   decide: (id: string, action: string, note: string) => void;
+  revise?: () => void;
 }) {
   const [note, setNote] = useState('');
   return (
@@ -71,9 +89,20 @@ function Review({
         <strong>{labels[item.status] || item.status}</strong>
         <span>{item.author}</span>
       </div>
+      {item.status === 'changes_requested' && revise && (
+        <button className="secondary" onClick={revise}>
+          Use feedback for the next iteration
+        </button>
+      )}
       {!!item.hasPreview && (
         <img
-          src={'/api/workshop?mission=mahabharata&id=' + item.id + '&preview=1'}
+          src={
+            '/api/workshop?mission=' +
+            encodeURIComponent(mission) +
+            '&id=' +
+            item.id +
+            '&preview=1'
+          }
           alt="Contributor’s Blender preview"
           loading="lazy"
         />
@@ -84,7 +113,12 @@ function Review({
       </p>
       <a
         className="text-button"
-        href={'/api/workshop?mission=mahabharata&id=' + item.id}
+        href={
+          '/api/workshop?mission=' +
+          encodeURIComponent(mission) +
+          '&id=' +
+          item.id
+        }
       >
         Download editable result ↗
       </a>
@@ -133,12 +167,27 @@ function Review({
     </article>
   );
 }
-export default function Workshop() {
+export default function Workshop({
+  mission = 'mahabharata',
+}: {
+  mission?: string;
+}) {
+  const [requirements, setRequirements] = useState<ToolRequirement[]>([]),
+    [tool, setTool] = useState(''),
+    [apiId, setApiId] = useState(''),
+    [apiName, setApiName] = useState(''),
+    [apiUrl, setApiUrl] = useState(''),
+    [apiToken, setApiToken] = useState(''),
+    [textPreview, setTextPreview] = useState('');
   const [code, setCode] = useState(''),
     [connected, setConnected] = useState(false),
     [status, setStatus] = useState<Status | null>(null),
     [model, setModel] = useState(''),
-    [prompt, setPrompt] = useState(initial),
+    [prompt, setPrompt] = useState(
+      mission === 'mahabharata'
+        ? initial
+        : 'Describe what this mission needs from the selected tool.',
+    ),
     [parent, setParent] = useState(''),
     [selected, setSelected] = useState(''),
     [error, setError] = useState(''),
@@ -172,20 +221,23 @@ export default function Workshop() {
     const stamp = generation.current;
     const d = await request<Status>('/status');
     if (stamp !== generation.current) return;
+    d.jobs = d.jobs.filter((j) => (j.mission || 'mahabharata') === mission);
     setStatus(d);
     setConnected(true);
     setModel((m) => (d.models.includes(m) ? m : d.models[0] || ''));
     setSelected((s) =>
       d.jobs.some((j) => j.id === s) ? s : d.jobs[0]?.id || '',
     );
-  }, [request]);
+  }, [request, mission]);
   const loadShared = useCallback(async () => {
     const d = await result<{ artifacts: Shared[]; canAccept: boolean }>(
-      await fetch('/api/workshop?mission=mahabharata', { cache: 'no-store' }),
+      await fetch('/api/workshop?mission=' + encodeURIComponent(mission) + '', {
+        cache: 'no-store',
+      }),
     );
     setShared(d.artifacts);
     setCanAccept(d.canAccept);
-  }, []);
+  }, [mission]);
   useEffect(() => {
     loadShared().catch((e) => setError(e.message));
   }, [loadShared]);
@@ -215,14 +267,19 @@ export default function Workshop() {
   }, [connected, refresh]);
   useEffect(() => {
     setPreview('');
+    setTextPreview('');
     setPreviewError('');
     if (!connected || job?.status !== 'ready') return;
     let disposed = false,
       url = '';
-    fetch(endpoint + '/files/' + job.id + '/preview.png', {
-      headers: { Authorization: 'Bearer ' + code },
-      signal: AbortSignal.timeout(15000),
-    })
+    const isApi = (job.tool || 'blender') !== 'blender';
+    fetch(
+      endpoint + '/files/' + job.id + (isApi ? '/result.json' : '/preview.png'),
+      {
+        headers: { Authorization: 'Bearer ' + code },
+        signal: AbortSignal.timeout(15000),
+      },
+    )
       .then(async (r) => {
         if (!r.ok)
           throw Error(
@@ -231,6 +288,12 @@ export default function Workshop() {
         return r.blob();
       })
       .then((blob) => {
+        if (isApi) {
+          blob.text().then((t) => {
+            if (!disposed) setTextPreview(t.slice(0, 12000));
+          });
+          return;
+        }
         if (!disposed) {
           url = URL.createObjectURL(blob);
           setPreview(url);
@@ -272,7 +335,7 @@ export default function Workshop() {
   async function share() {
     if (!job) return;
     const q = new URLSearchParams({
-      mission: 'mahabharata',
+      mission,
       id: job.id,
       prompt: job.prompt,
       model: job.model,
@@ -284,10 +347,18 @@ export default function Workshop() {
           body: await localFile(job.id, 'artifact.zip'),
         }),
       );
+    if ((job.tool || 'blender') !== 'blender') {
+      await loadShared();
+      setNotice('API result shared with the mission for review.');
+      return;
+    }
     try {
       await result(
         await fetch(
-          '/api/workshop?mission=mahabharata&action=preview&id=' + job.id,
+          '/api/workshop?mission=' +
+            encodeURIComponent(mission) +
+            '&action=preview&id=' +
+            job.id,
           { method: 'POST', body: await localFile(job.id, 'preview.png') },
         ),
       );
@@ -303,15 +374,28 @@ export default function Workshop() {
     }
   }
   function revise(j: Job) {
+    setTool(j.tool || 'blender');
     setParent(j.id);
     setPrompt('Change this scene: ');
     runId.current = null;
     brief.current?.focus();
     brief.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
-  const ready = connected && status?.version === 2 && status.blender && !!model;
+  const selectedTool = status?.tools?.find((t) => t.id === tool);
+  const ready =
+    connected &&
+    status?.version === 3 &&
+    !!selectedTool?.available &&
+    requirements.some((r) => r.id === tool) &&
+    (!selectedTool.requiresAgent || !!model);
+  useEffect(() => {
+    setTool((t) =>
+      requirements.some((r) => r.id === t) ? t : requirements[0]?.id || '',
+    );
+  }, [requirements]);
   return (
     <>
+      <MissionTools mission={mission} onChange={setRequirements} />
       <div className="ws-statusbar">
         <span className={ready ? 'ws-indicator online' : 'ws-indicator'} />
         <strong>
@@ -321,7 +405,7 @@ export default function Workshop() {
               ? 'Finish workshop setup'
               : 'Connect your local workshop'}
         </strong>
-        <span>Blender + Ollama · local compute</span>
+        <span>Mission tools · local connections</span>
         <a href="/platform-history">What’s next ↗</a>
       </div>
       {error && (
@@ -346,6 +430,8 @@ export default function Workshop() {
                   id: runId.current,
                   prompt,
                   model,
+                  mission,
+                  tool,
                   parent,
                 });
                 setSelected(j.id);
@@ -392,39 +478,69 @@ export default function Workshop() {
             )}
             <div className="ws-run-controls">
               <label>
-                Local model
+                Mission tool
                 <Select
-                  value={model || null}
-                  disabled={!connected || busy}
+                  value={tool || null}
                   onValueChange={(v) => {
-                    setModel(String(v));
+                    setTool(String(v));
+                    setParent('');
                     runId.current = null;
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Connect to choose a model" />
+                    <SelectValue placeholder="Add a mission requirement" />
                   </SelectTrigger>
                   <SelectContent>
-                    {status?.models.map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {m}
+                    {requirements.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </label>
+              {selectedTool?.requiresAgent && (
+                <label>
+                  Local model
+                  <Select
+                    value={model || null}
+                    disabled={!connected || busy}
+                    onValueChange={(v) => {
+                      setModel(String(v));
+                      runId.current = null;
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Connect to choose a model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {status?.models.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {m}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </label>
+              )}
               <button
                 className="primary"
                 disabled={!ready || busy || !!status?.active}
               >
                 {status?.active
                   ? 'Working on your draft…'
-                  : 'Make a Blender draft ↗'}
+                  : selectedTool?.requiresAgent
+                    ? 'Ask the agent to make a draft ↗'
+                    : 'Run the connected operation ↗'}
               </button>
             </div>
             <p className="workspace-status">
-              One local run · up to 8 minutes · no paid API. Creates simple 3D
-              blockouts, not finished game assets.
+              {selectedTool?.requiresAgent
+                ? 'This operation uses a local agent. Blender creates rough 3D blockouts, with an eight-minute limit.'
+                : selectedTool
+                  ? 'One GET request to your configured endpoint. The brief is a run note; it does not change the request. Responses are limited to 1 MB and 30 seconds.'
+                  : 'Connect this computer and configure an adapter for the selected requirement.'}
+              {selectedTool && !selectedTool.available && selectedTool.reason}
             </p>
           </form>
           <section className="ws-result">
@@ -441,7 +557,14 @@ export default function Workshop() {
                 <span className="small-label">{job.elapsed}s</span>
               )}
             </div>
-            {preview ? (
+            {textPreview ? (
+              <pre className="ws-api-result">
+                {textPreview}
+                {textPreview.length >= 12000
+                  ? '\n… Download the bundle for the complete response.'
+                  : ''}
+              </pre>
+            ) : preview ? (
               <img
                 className="ws-render"
                 src={preview}
@@ -477,9 +600,14 @@ export default function Workshop() {
                 <div className="action-buttons">
                   {job.status === 'ready' && (
                     <>
-                      <button className="secondary" onClick={() => revise(job)}>
-                        Request changes
-                      </button>
+                      {(job.tool || 'blender') === 'blender' && (
+                        <button
+                          className="secondary"
+                          onClick={() => revise(job)}
+                        >
+                          Request changes
+                        </button>
+                      )}
                       <button
                         className="secondary"
                         disabled={busy}
@@ -496,10 +624,11 @@ export default function Workshop() {
                           })
                         }
                       >
-                        Download .blend bundle
+                        Download result bundle
                       </button>
                       {(!sharedJob ||
-                        (!sharedJob.hasPreview &&
+                        ((job.tool || 'blender') === 'blender' &&
+                          !sharedJob.hasPreview &&
                           sharedJob.status === 'shared')) && (
                         <button
                           className="primary"
@@ -586,9 +715,10 @@ export default function Workshop() {
             </button>
             {status && (
               <p className="workspace-status">
-                Blender: {status.blender ? 'ready' : 'not found'}. Models:{' '}
-                {status.models.length}. {status.problem}
-                {status.version !== 2
+                Available operations:{' '}
+                {status.tools?.filter((t) => t.available).length || 0}. Agent
+                models: {status.models.length}. {status.problem}
+                {status.version !== 3
                   ? ' Restart with the updated workshop download to enable this version.'
                   : ''}
               </p>
@@ -603,8 +733,9 @@ export default function Workshop() {
                   .
                 </li>
                 <li>
-                  Use the included installation helper for Blender, Ollama, and
-                  Python, then download a local model.
+                  Install Python for the companion. Add only the tools this
+                  mission needs. The bundled helper installs Blender and Ollama
+                  for the Mahabharata workflow.
                 </li>
                 <li>
                   Double-click Start workshop and copy its code here. Allow
@@ -617,6 +748,83 @@ export default function Workshop() {
               </p>
             </details>
           </details>
+          {connected && (
+            <details className="ws-connection">
+              <summary>Connect an HTTP API</summary>
+              <p>
+                Configure a fixed, read-only JSON endpoint on this PC. Use the
+                same connection ID as the mission requirement. The agent cannot
+                change the URL or perform writes.
+              </p>
+              <form
+                className="update-composer"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  act(async () => {
+                    await request('/connectors', {
+                      id: apiId,
+                      name: apiName,
+                      url: apiUrl,
+                      token: apiToken,
+                    });
+                    setApiToken('');
+                    setApiUrl('');
+                    setApiId('');
+                    setApiName('');
+                    await refresh();
+                    setNotice('API connection saved on this computer.');
+                  });
+                }}
+              >
+                <label>
+                  Connection ID
+                  <input
+                    required
+                    pattern="[a-z][a-z0-9-]{1,39}"
+                    value={apiId}
+                    onChange={(e) => setApiId(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Name
+                  <input
+                    required
+                    minLength={2}
+                    maxLength={80}
+                    value={apiName}
+                    onChange={(e) => setApiName(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Exact JSON endpoint
+                  <input
+                    required
+                    type="url"
+                    value={apiUrl}
+                    onChange={(e) => setApiUrl(e.target.value)}
+                    placeholder="https://service.example/api/data"
+                  />
+                </label>
+                <label>
+                  Bearer token (optional)
+                  <input
+                    type="password"
+                    autoComplete="off"
+                    value={apiToken}
+                    onChange={(e) => setApiToken(e.target.value)}
+                  />
+                </label>
+                <p>
+                  Credentials are saved in the companion’s local configuration
+                  file. They are not uploaded to the platform. Only share
+                  returned data you intend the mission to see.
+                </p>
+                <button className="secondary" disabled={busy}>
+                  Save local connection
+                </button>
+              </form>
+            </details>
+          )}
           <section className="ws-iterations">
             <div className="section-heading">
               <h2>Iterations</h2>
@@ -673,15 +881,32 @@ export default function Workshop() {
           <div className="ws-shared-grid">
             {shared.map((item) => (
               <Review
+                mission={mission}
                 key={item.id}
                 item={item}
                 canAccept={canAccept}
                 busy={busy}
+                revise={
+                  status?.jobs.some(
+                    (j) =>
+                      j.id === item.id && (j.tool || 'blender') === 'blender',
+                  )
+                    ? () => {
+                        const original = status!.jobs.find(
+                          (j) => j.id === item.id,
+                        )!;
+                        revise(original);
+                        setPrompt(item.feedback);
+                      }
+                    : undefined
+                }
                 decide={(id, action, feedback) =>
                   act(async () => {
                     await result(
                       await fetch(
-                        '/api/workshop?mission=mahabharata&action=' +
+                        '/api/workshop?mission=' +
+                          encodeURIComponent(mission) +
+                          '&action=' +
                           action +
                           '&id=' +
                           id,

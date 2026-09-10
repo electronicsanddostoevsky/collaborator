@@ -5,6 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.request import Request, urlopen, ProxyHandler, build_opener
 from urllib.parse import urlparse
 from scene import validate
+from connectors import capabilities,register,execute_api
 
 ROOT=Path(__file__).resolve().parent
 RUNS=ROOT/'runs'; RUNS.mkdir(exist_ok=True)
@@ -23,6 +24,8 @@ def ollama(path, data=None, timeout=4):
 def blender():
     candidate=os.environ.get('BLENDER_PATH') or shutil.which('blender')
     if candidate and Path(candidate).is_file(): return str(Path(candidate).resolve())
+    for path in ('/Applications/Blender.app/Contents/MacOS/Blender','/usr/bin/blender','/snap/bin/blender'):
+        if Path(path).is_file():return path
     found=sorted(Path('C:/Program Files/Blender Foundation').glob('Blender */blender.exe'),reverse=True)
     return str(found[0]) if found else None
 
@@ -41,6 +44,11 @@ def execute(job):
     global ACTIVE,PROCESS
     folder=RUNS/job['id']; start=time.monotonic()
     try:
+        if job.get('tool','blender')!='blender':
+            job['status']='running';save(job)
+            execute_api(job,folder)
+            job['status']='stopped' if CANCEL.is_set() else 'ready';job['elapsed']=round(time.monotonic()-start);save(job)
+            return
         job['status']='planning';save(job)
         prior=''
         if job.get('parent'):
@@ -61,7 +69,7 @@ def execute(job):
         if CANCEL.is_set(): raise InterruptedError()
         job['elapsed']=round(time.monotonic()-start)
         with zipfile.ZipFile(folder/'artifact.zip','w',zipfile.ZIP_DEFLATED) as bundle:
-            for name in ('artifact.blend','preview.png','scene.json'): bundle.write(folder/name,name)
+            for name in ('artifact.blend','artifact.glb','preview.png','scene.json'): bundle.write(folder/name,name)
             bundle.writestr('job.json',json.dumps({**job,'status':'ready'}))
         job['status']='ready';save(job)
     except InterruptedError:
@@ -97,14 +105,14 @@ class Handler(BaseHTTPRequestHandler):
         if self.path=='/status':
             try: models=[m['name'] for m in ollama('/api/tags').get('models',[]) if not m.get('remote_host')];problem=''
             except Exception: models=[];problem='Start Ollama and install a local model.'
-            return self.respond({'version':2,'blender':bool(blender()),'models':models,'problem':problem,'jobs':history(),'active':ACTIVE})
+            return self.respond({'version':3,'blender':bool(blender()),'models':models,'problem':problem,'tools':capabilities(bool(blender())),'jobs':history(),'active':ACTIVE})
         bits=self.path.split('/')
-        if len(bits)==4 and bits[1]=='files' and bits[3] in ('preview.png','artifact.zip'):
+        if len(bits)==4 and bits[1]=='files' and bits[3] in ('preview.png','artifact.zip','result.json'):
             try: identifier=str(uuid.UUID(bits[2]))
             except ValueError: return self.respond({'error':'Invalid run'},400)
             path=RUNS/identifier/bits[3]
             if path.is_file() and path.stat().st_size<=10*1024*1024:
-                return self.respond(path.read_bytes(),kind='image/png' if bits[3].endswith('png') else 'application/zip')
+                return self.respond(path.read_bytes(),kind='image/png' if bits[3].endswith('png') else 'application/zip' if bits[3].endswith('zip') else 'text/plain')
         return self.respond({'error':'File unavailable or over the 10 MB pilot limit.'},404)
     def do_POST(self):
         global ACTIVE
@@ -113,6 +121,9 @@ class Handler(BaseHTTPRequestHandler):
             length=int(self.headers.get('Content-Length','0'))
             if not 0<length<=8192: raise ValueError('Request is too large.')
             d=json.loads(self.rfile.read(length))
+            if self.path=='/connectors':
+                with LOCK:register(d)
+                return self.respond({'saved':True},201)
             if self.path=='/cancel':
                 with LOCK:
                     if d.get('id')!=ACTIVE or not ACTIVE:return self.respond({'error':'This run is no longer active.'},409)
@@ -120,25 +131,32 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond({'stopping':True})
             if self.path!='/run': return self.respond({'error':'Unknown operation'},404)
             if not isinstance(d.get('prompt'),str) or not 10<=len(d['prompt'])<=3000: raise ValueError('Describe your artifact in 10–3000 characters.')
-            if not blender(): raise ValueError('Install Blender first.')
-            models=[m['name'] for m in ollama('/api/tags').get('models',[]) if not m.get('remote_host')]
-            if d.get('model') not in models: raise ValueError('Choose an installed local model.')
-            details=ollama('/api/show',{'model':d['model']})
-            if details.get('remote_model') or details.get('remote_host') or not details.get('model_info'):
-                raise ValueError('Choose a downloaded local model, not a cloud model.')
+            tool=d.get('tool','blender');mission=d.get('mission','mahabharata')
+            if not isinstance(mission,str) or not 1<=len(mission)<=80 or any(c not in 'abcdefghijklmnopqrstuvwxyz0123456789-' for c in mission):raise ValueError('Invalid mission.')
+            capability=next((c for c in capabilities(bool(blender())) if c['id']==tool),None)
+            if not capability or not capability['available']:raise ValueError('This tool has no available operation on this computer.')
+            if capability['requiresAgent']:
+                models=[m['name'] for m in ollama('/api/tags').get('models',[]) if not m.get('remote_host')]
+                if d.get('model') not in models: raise ValueError('Choose an installed local model.')
+                details=ollama('/api/show',{'model':d['model']})
+                if details.get('remote_model') or details.get('remote_host') or not details.get('model_info'):
+                    raise ValueError('Choose a downloaded local model, not a cloud model.')
+            else:d['model']='No agent — fixed API request'
             parent=d.get('parent') or None
             if parent:
                 parent=str(uuid.UUID(parent))
                 if not (RUNS/parent/'scene.json').is_file(): raise ValueError('Previous scene unavailable.')
+                parent_job=json.loads((RUNS/parent/'job.json').read_text())
+                if parent_job.get('mission','mahabharata')!=mission or parent_job.get('tool','blender')!=tool:raise ValueError('Choose a parent from the same mission and tool.')
             with LOCK:
                 identifier=str(uuid.UUID(d['id']))
                 if (RUNS/identifier/'job.json').is_file():
                     existing=json.loads((RUNS/identifier/'job.json').read_text())
-                    if any(existing.get(k)!=v for k,v in [('prompt',d['prompt']),('model',d['model']),('parent',parent)]):return self.respond({'error':'Run ID belongs to a different request.'},409)
+                    if any(existing.get(k)!=v for k,v in [('prompt',d['prompt']),('model',d['model']),('parent',parent)]) or existing.get('mission','mahabharata')!=mission or existing.get('tool','blender')!=tool:return self.respond({'error':'Run ID belongs to a different request.'},409)
                     return self.respond(existing)
                 if ACTIVE: return self.respond({'error':'A job is already running.'},409)
                 if len(list(RUNS.glob('*/job.json')))>=100: raise ValueError('The local pilot has 100 retained runs. Archive old runs before continuing.')
-                job={'id':identifier,'prompt':d['prompt'],'model':d['model'],'parent':parent,'status':'queued','created':time.time()}
+                job={'id':identifier,'prompt':d['prompt'],'model':d['model'],'parent':parent,'status':'queued','created':time.time(),'mission':mission,'tool':tool}
                 ACTIVE=job['id'];CANCEL.clear();save(job)
                 threading.Thread(target=execute,args=(job,),daemon=True).start()
             return self.respond(job,201)
@@ -146,7 +164,7 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__=='__main__':
     for job in history():
-        if job['status'] in ('queued','planning','rendering'):
+        if job['status'] in ('queued','planning','rendering','running'):
             job['status']='stopped';job['error']='Workshop restarted; this run was interrupted.';save(job)
     print('Collaborator local workshop\nPairing code: '+TOKEN+'\nKeep this window open. Stop with Ctrl+C.\nBlender: '+('found' if blender() else 'not found'),flush=True)
     ThreadingHTTPServer(('127.0.0.1',8765),Handler).serve_forever()

@@ -21,3 +21,11 @@ Before multi-worker scheduling, move job ownership into a durable queue with exp
 Unit tests cover schema rejection, origin/secret checks, persisted local jobs, duplicate requests and scoped cancellation. Route tests cover upload authentication, preview ownership/bytes, immutable reviews, retries, acceptance ownership and mission Git references. Full local Qwen3 8B generation and Blender 5.2 rendering have been exercised on this machine. Geometry quality still requires human review. Browser-to-loopback permission behavior has not been browser-tested. The UI reports connection errors and suggests using a regular browser when an embedded browser blocks local-network access.
 
 Shared uploads are contributor-supplied results, not cryptographically attested executions. Human review remains necessary. The first adapter supports primitive blockouts, not arbitrary game assets, rigging, animation or engineering validation.
+
+## Generic mission-tool iteration
+
+The platform distinguishes mission requirements, local tool adapters, and local agent models. `/missions/[slug]/workshop` scopes UI jobs and shared artifacts to the selected mission. Tool requirement changes are owner-only, revision-checked, recorded in Git, and inherited by forks. `mission-tools.json` is managed through the requirements interface, not working-file edits or incoming merges.
+
+The companion's `connectors.py` owns configurable adapters. Its first generic operation reads a fixed JSON URL. The optional bearer token lives in `.local-connectors.json`, excluded from Git and the download bundle; it is not protected by an OS credential vault yet. Discovery never returns the token or endpoint. API errors do not expose response bodies. Returned data may be sensitive: sharing is always explicit.
+
+Blender remains a specific tool adapter. Unreal is a Mahabharata requirement with no connected executor. The architecture permits other adapters; it does not claim universal application control. Companion version 3 is required by the new UI. Existing jobs without mission/tool fields are treated as legacy Mahabharata/Blender runs.

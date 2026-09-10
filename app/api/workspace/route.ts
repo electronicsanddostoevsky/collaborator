@@ -115,7 +115,9 @@ export async function POST(req: Request) {
       files[d.path] = d.content;
     }
     if (
-      Object.keys(files).length > 13 ||
+      Object.keys(files).filter(
+        (p) => !['mission.json', 'mission-tools.json'].includes(p),
+      ).length > 12 ||
       workspaceSize(files) > 65536 ||
       new TextEncoder().encode(d.content).length > 16384
     )

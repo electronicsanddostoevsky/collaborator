@@ -20,3 +20,11 @@ This first connector makes primitive 3D blockouts with a local Ollama model and 
 - The companion is bound to `127.0.0.1:8765`, requires an exact allowed Origin and Host, and a random per-launch pairing secret. Do not expose it through a public tunnel.
 
 Official references: https://docs.ollama.com/capabilities/structured-outputs, https://docs.ollama.com/faq, https://docs.blender.org/manual/en/latest/advanced/command_line/arguments.html
+
+## Mission tool connections (companion v3)
+
+Use the mission's workshop to declare required tools and select an available operation. Blender and Unreal are defaults only for Mahabharata. API-only missions do not require Blender or Ollama. Python is needed for the local companion; Windows users can use Start workshop, while other systems can run `python3 companion.py` (not tested here).
+
+In Connect an HTTP API, enter a connection ID matching the mission requirement, a name, and a fixed HTTPS JSON URL (HTTP is permitted for loopback APIs). An optional bearer token is stored only in `.local-connectors.json` beside this companion. Protect that file as a credential file. Never publish it. Connections are fixed GET operations; the brief is a run note, not agent instructions for changing the endpoint. Responses are capped at 1 MB with no redirects. Downloaded data can be shared for mission review.
+
+New Blender runs include artifact.glb as well as artifact.blend. Existing runs remain unchanged.

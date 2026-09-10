@@ -7,8 +7,32 @@ from scene import validate
 import companion
 from unittest.mock import patch
 import uuid
+import connectors
+from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 
 class WorkshopTests(unittest.TestCase):
+    def test_generic_api_connector(self):
+        class Api(BaseHTTPRequestHandler):
+            def log_message(self,*args):pass
+            def do_GET(self):
+                if self.path=='/redirect':
+                    self.send_response(302);self.send_header('Location','/data');self.end_headers();return
+                self.send_response(200);self.send_header('Content-Type','application/json');self.end_headers();self.wfile.write(b'{"volunteers":12,"bags":40}')
+        server=ThreadingHTTPServer(('127.0.0.1',0),Api);threading.Thread(target=server.serve_forever,daemon=True).start()
+        try:
+            with tempfile.TemporaryDirectory() as directory,patch.object(connectors,'CONFIG',Path(directory)/'connections.json'):
+                config={'id':'cleanup-api','name':'Cleanup inventory','url':'http://127.0.0.1:'+str(server.server_port)+'/data','token':'local-test-secret'}
+                connectors.register(config)
+                self.assertNotIn('local-test-secret',json.dumps(connectors.capabilities(False)))
+                self.assertFalse(connectors.capabilities(False)[-1]['requiresAgent'])
+                folder=Path(directory)/'run';folder.mkdir();connectors.execute_api({'tool':'cleanup-api'},folder)
+                self.assertEqual(json.loads((folder/'result.json').read_text())['volunteers'],12)
+                self.assertTrue((folder/'artifact.zip').is_file())
+                with self.assertRaises(ValueError):connectors.register({**config,'id':'unsafe','url':'http://example.com/data'})
+                with self.assertRaises(ValueError):connectors.register(config)
+                connectors.register({**config,'id':'redirect-api','url':'http://127.0.0.1:'+str(server.server_port)+'/redirect'})
+                with self.assertRaises(ValueError):connectors.execute_api({'tool':'redirect-api'},folder)
+        finally:server.shutdown();server.server_close()
     def test_retry_and_scoped_cancel(self):
         previous=companion.RUNS
         with tempfile.TemporaryDirectory() as directory, patch.object(companion,'blender',return_value=sys.executable), patch.object(companion,'ollama',side_effect=lambda path,*args,**kwargs:{'models':[{'name':'test'}]} if path=='/api/tags' else {'model_info':{'local':True}}), patch.object(companion,'execute'):
