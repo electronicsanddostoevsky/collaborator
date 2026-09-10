@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import MissionTools from './mission-tools';
+import CodexConnection, { agentLabel } from './codex-connection';
 import type { ToolRequirement } from '@/lib/mission-tools';
 type Capability = {
   id: string;
@@ -207,6 +208,7 @@ export default function Workshop({
     tools: string[];
   };
   const [taskContext, setTaskContext] = useState<TaskContext | null>(null);
+  const [cloudConsent, setCloudConsent] = useState(false);
   const readTask = useCallback(async () => {
     if (!taskId) return null;
     const value = await result<TaskContext>(
@@ -557,6 +559,7 @@ export default function Workshop({
                   id: runId.current,
                   prompt,
                   model,
+                  cloudConsent,
                   mission,
                   tool,
                   parent,
@@ -570,10 +573,11 @@ export default function Workshop({
                     : {}),
                 });
                 setSelected(j.id);
+                setCloudConsent(false);
                 runId.current = null;
                 await refresh();
                 setNotice(
-                  'Your local model is working. Each iteration keeps its own files.',
+                  'Your chosen agent is working. Each iteration keeps its own files.',
                 );
               });
             }}
@@ -636,12 +640,13 @@ export default function Workshop({
               </label>
               {selectedTool?.requiresAgent && (
                 <label>
-                  Local model
+                  Agent model
                   <Select
                     value={model || null}
                     disabled={!connected || busy}
                     onValueChange={(v) => {
                       setModel(String(v));
+                      setCloudConsent(false);
                       runId.current = null;
                     }}
                   >
@@ -651,7 +656,7 @@ export default function Workshop({
                     <SelectContent>
                       {status?.models.map((m) => (
                         <SelectItem key={m} value={m}>
-                          {m}
+                          {agentLabel(m)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -660,7 +665,12 @@ export default function Workshop({
               )}
               <button
                 className="primary"
-                disabled={!ready || busy || !!status?.active}
+                disabled={
+                  !ready ||
+                  busy ||
+                  !!status?.active ||
+                  (model.startsWith('codex:') && !cloudConsent)
+                }
               >
                 {status?.active
                   ? 'Working on your draft…'
@@ -669,9 +679,21 @@ export default function Workshop({
                     : 'Run the connected operation ↗'}
               </button>
             </div>
+            {model.startsWith('codex:') && (
+              <label>
+                <input
+                  type="checkbox"
+                  checked={cloudConsent}
+                  onChange={(e) => setCloudConsent(e.target.checked)}
+                />{' '}
+                Send this run’s brief and project reference excerpts to Codex
+                using my ChatGPT allowance. Local tools remain controlled by the
+                workshop.
+              </label>
+            )}
             <p className="workspace-status">
               {selectedTool?.requiresAgent
-                ? 'This operation uses a local agent. Blender creates rough 3D blockouts, with an eight-minute limit.'
+                ? 'Your selected agent proposes a draft. Blender creates rough 3D blockouts locally, with an eight-minute limit.'
                 : selectedTool
                   ? 'One GET request to your configured endpoint. The brief is a run note; it does not change the request. Responses are limited to 1 MB and 30 seconds.'
                   : 'Connect this computer and configure an adapter for the selected requirement.'}
@@ -816,6 +838,7 @@ export default function Workshop({
           </section>
         </section>
         <aside className="ws-sidebar">
+          {connected && <CodexConnection request={request} changed={refresh} />}
           <details className="ws-connection" open={!connected}>
             <summary>
               {connected ? 'Workshop connected' : 'Connect your computer'}
@@ -853,7 +876,7 @@ export default function Workshop({
                 Available operations:{' '}
                 {status.tools?.filter((t) => t.available).length || 0}. Agent
                 models: {status.models.length}. {status.problem}
-                {status.version !== 3
+                {(status.version || 0) < 4
                   ? ' Restart with the updated workshop download to enable this version.'
                   : ''}
               </p>

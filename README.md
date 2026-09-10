@@ -2,7 +2,7 @@
 
 A mission-first platform where people, agents, and locally connected tools help make things exist together. Read the [manifesto](docs/MANIFESTO.md), download its [PDF](public/vision.pdf), and see the [Mahabharata pilot acceptance contract](docs/PILOT-ACCEPTANCE.md).
 
-Current prototype: persistent participation, reviewed contributions, per-mission Git history and forks, modular tool requirements, local Ollama/Blender work, fixed read-only API connections, and a consent-first local control window. Shared worker scheduling, subdivision leadership, and Unreal execution remain under development.
+Current prototype: persistent participation, community membership and scoped leads, approved AI work plans, task-linked reviewed contributions, per-mission Git history and forks, modular tool requirements, local Ollama or user-connected Codex generation, local Blender work, fixed read-only API connections, and a consent-first local control window. Shared worker scheduling and Unreal execution remain under development. See [MVP, scale and launch budget](docs/MVP-AND-LAUNCH.md).
 
 Public source is at https://github.com/electronicsanddostoevsky/collaborator. See [independent continuity and licensing status](docs/INDEPENDENCE.md) before reusing or deploying. The running pilot is private; publishing source does not publish community data.
 

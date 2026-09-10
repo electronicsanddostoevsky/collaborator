@@ -20,6 +20,17 @@ export default function PlatformHistory() {
         <div className="mission-timeline">
           <article className="timeline-item">
             <span className="small-label">10 SEPTEMBER 2026</span>
+            <h2>Bring the agent access you already have</h2>
+            <p className="post-body">
+              Connect Codex with your own ChatGPT subscription, choose an
+              available model, and approve a planning or scene-generation run.
+              The local workshop keeps control of Blender and the mission lead
+              still reviews shared results. Ollama remains available for local
+              inference.
+            </p>
+          </article>
+          <article className="timeline-item">
+            <span className="small-label">10 SEPTEMBER 2026</span>
             <h2>Local work can carry the project’s context</h2>
             <p className="post-body">
               Task runs save a mission text snapshot and provide bounded

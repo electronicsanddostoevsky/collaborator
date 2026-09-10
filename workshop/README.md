@@ -1,6 +1,6 @@
 # Collaborator local workshop
 
-This first connector makes primitive 3D blockouts with a local Ollama model and Blender. It is not a general Blender agent or an Unreal connector.
+This connector makes primitive 3D blockouts with local Ollama or ChatGPT-connected Codex, and local Blender. It also proposes work plans and supports fixed JSON API reads. It is not a general Blender agent or an Unreal connector.
 
 ## Windows setup
 
@@ -15,7 +15,7 @@ This first connector makes primitive 3D blockouts with a local Ollama model and 
 - One job at a time. A model request times out after four minutes; total adapter execution is capped at eight minutes. A stop during inference is cooperative: the current request may finish before the stop is observed. No new render starts after cancellation.
 - No generated Python is executed. The model supplies validated JSON with up to 48 primitive shapes. The trusted adapter creates geometry, camera, lighting, `.blend`, and a PNG preview. There is no arbitrary command, file, plugin, or network operation in the scene schema.
 - Local jobs are retained in `runs/`. A restart marks interrupted jobs as stopped. Limit: 100 retained local runs. Archive old runs yourself before reaching this cap.
-- Artifacts up to 10 MB can be transferred from the companion. Shared results have a separate 100 MB per-person pilot quota. Sharing is a deliberate upload to the mission; local generation alone uploads nothing.
+- Artifacts up to 10 MB can be transferred from the companion. Shared results have a separate 100 MB per-person pilot quota. Generating does not publish a result to the mission. Codex generation sends the approved brief and reference excerpts to OpenAI; Ollama generation runs locally.
 - The website records shared outputs, model names, instructions, and acceptance. Acceptance writes a content-hashed artifact reference to mission Git. Binary assets remain in object storage.
 - The companion is bound to `127.0.0.1:8765`, requires an exact allowed Origin and Host, and a random per-launch pairing secret. Do not expose it through a public tunnel.
 
@@ -38,6 +38,22 @@ A second launch cannot replace an existing workshop. Stop the earlier window (or
 This is a Python control window, not a signed installer. Windows lifecycle and consent tests pass; macOS/Linux packaging and browser permission flows still require testing.
 
 ## AI work planning
-Open a claimed task from the mission task board to generate work for that task. The companion preserves its task revision and mission text snapshot in inputs.json. Blender generation receives bounded reference excerpts, saved as context-used.txt. These files are included in the result bundle. Workspace filenames stay JSON data; they are never extracted or executed. Binary assets are not automatically imported. Sharing sends the task for review; requested changes require a new run against the refreshed task revision. Runs from other tasks cannot be used as revision parents. Updating the complete companion folder, including inputs.py, is required.
+Choose a model from the connected providers. Codex can generate plans without installing Ollama; Blender is needed only for its scene operation.
 
-The mission planning page uses the mission-planner capability to request a bounded JSON plan from local Ollama. It needs no Blender or Unreal installation. Generation does not run the proposed tasks. Edit the draft, submit it, and wait for mission-lead approval. Update this entire folder when upgrading: planner.py is required by companion.py.
+## ChatGPT subscription connection (companion v4)
+
+Install Codex app or CLI and restart the workshop. Connect your computer, expand **Use Codex with your ChatGPT subscription**, connect Codex, prepare sign-in and open the official sign-in link. After signing in, refresh the connection and select a `Codex · ... · subscription` model. Confirm sending each run's brief/context before starting it. This uses your own account allowance, with no automatic API-key fallback or purchases.
+
+The adapter uses a separate `.codex-agent` directory in this folder. It contains private account credentials and caches: never upload, commit or share it. Disconnect stops this adapter but retains sign-in on the PC; it does not log out your other Codex sessions. Stop the workshop before archiving or moving the folder, and exclude `.codex-agent`, `.local-connectors.json` and runs when distributing the companion. Only the release ZIP contains the shareable files.
+
+Tested on native Windows with Codex 0.153.4 and ChatGPT Plus. App Server and permissions interfaces can change; if protocol setup fails, update Codex/companion rather than weakening permissions. The adapter disables command/exec, apps, plugins and delegation, rejects server tool approval requests and uses the built-in read-only policy. This is a data-generation adapter, not a restricted-read sandbox for arbitrary hostile agent code. Blender execution remains in the trusted scene adapter. Full agent-controlled worktrees and remote worker execution are still future work.
+
+The official managed sign-in flow stores credentials locally. The platform receives only the model label and deliberately shared output; the connection panel sees account plan and allowance summaries, not tokens. A real Astra plan and a Blender blockout completed through this adapter, with editable exports verified.
+
+Protocol references: https://learn.chatgpt.com/docs/app-server and https://learn.chatgpt.com/docs/permissions
+
+## Task-linked context
+
+Open a claimed task from the mission task board to generate work for that task. The companion preserves its task revision and mission text snapshot in inputs.json. Blender generation receives bounded reference excerpts, saved as context-used.txt. These files are included in the result bundle. Workspace filenames stay JSON data; they are never extracted or executed. Binary assets are not automatically imported. Sharing sends the task for review; requested changes require a new run against the refreshed task revision. Runs from other tasks cannot be used as revision parents. Updating the complete companion folder, including inputs.py and codex_agent.py, is required.
+
+The mission planning page uses the mission-planner capability to request a bounded JSON plan from Ollama or Codex. It needs no Blender or Unreal installation. Generation does not run the proposed tasks. Edit the draft, submit it, and wait for mission-lead approval. Update this entire folder when upgrading: planner.py is required by companion.py.

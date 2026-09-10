@@ -22,7 +22,7 @@ for oid, _, name in objects:
     if header[1] != b'blob':
         continue
     count += 1
-    if re.search(r'(^|/)(\.dev\.vars|\.env(?!\.example)|\.local-connectors|workshop-connection)|^workshop/runs/|^outputs/', name):
+    if re.search(r'(^|/)(\.dev\.vars|\.env(?!\.example)|\.local-connectors|\.codex-agent|workshop-connection)|^workshop/runs/|^outputs/', name):
         bad.append(name + ' (private file path)')
     if re.search(rb'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk-proj-[A-Za-z0-9_-]{40,}', content):
         bad.append(name + ' (credential pattern)')

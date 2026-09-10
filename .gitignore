@@ -47,3 +47,4 @@ workshop/runs/
 workshop/__pycache__/
 workshop/.local-connectors.json
 workshop/.local-connectors.tmp
+workshop/.codex-agent/

@@ -44,6 +44,7 @@ class WorkshopService:
             self.server.server_close()
             self.thread.join(timeout=2)
             self.server = None
+        companion.codex_agent.disconnect()
         return True
 
 

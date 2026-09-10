@@ -12,6 +12,8 @@ Updated 10 September 2026. This is a prioritized backlog, not a claim that the l
 
 ## Prioritized next changes
 
+User-connected Codex is implemented for bounded planning and scene generation, alongside local Ollama. The companion keeps a separate local ChatGPT sign-in, discovers models, requires per-run cloud consent, and has no automatic API-billing fallback. Native Windows Plus-backed Astra planning and Blender generation passed live tests. Unrestricted agent workspaces and multi-user scheduling remain pending. See MVP-AND-LAUNCH.md for the prioritized launch gates, scale work, ownership decisions and monetary assumptions.
+
 Task-linked contributions are implemented: claimed tasks open a scoped workshop, preserve mission text snapshots, and submit artifacts for scoped lead review. Acceptance updates the task and mission Git together; requested changes reopen work. Binary input retrieval, shared worker leases, and the real multi-contributor trial remain pending.
 
 | ID | Priority / state | Change | Definition of done | Dependency / challenge |

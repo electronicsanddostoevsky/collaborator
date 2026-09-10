@@ -85,6 +85,15 @@ class WorkshopTests(unittest.TestCase):
                 self.assertFalse(companion.CANCEL.is_set())
                 self.assertEqual(post('/cancel',{'id':data['id']})[0],200)
                 self.assertTrue(companion.CANCEL.is_set())
+                companion.ACTIVE=None;companion.CANCEL.clear()
+                cloud={**data,'id':str(uuid.uuid4()),'model':'codex:test'}
+                with patch.object(companion.codex_agent,'status',return_value={'signedIn':True,'models':[{'id':'test'}]}):
+                    calls=companion.ollama.call_count
+                    self.assertEqual(post('/run',cloud)[0],400)
+                    self.assertEqual(post('/run',{**cloud,'cloudConsent':True})[0],201)
+                    self.assertEqual(post('/run',{**cloud,'cloudConsent':True})[0],200)
+                    self.assertEqual(companion.ollama.call_count,calls)
+                    self.assertEqual(post('/codex/disconnect',{})[0],409)
             finally:server.shutdown();server.server_close();companion.RUNS=previous;companion.ACTIVE=None;companion.CANCEL.clear()
     def scene(self): return {'objects':[{'name':'wheel','shape':'torus','position':[0,0,0],'rotation':[90,0,0],'scale':[1,1,1],'color':[0.3,0.2,0.1]}]}
     def test_schema(self):

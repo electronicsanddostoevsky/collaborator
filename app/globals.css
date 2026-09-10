@@ -2017,6 +2017,7 @@ input[type='file']::file-selector-button {
 .plan-panel p { line-height: 1.6; margin: 12px 0; }
 .plan-panel label { display: grid; gap: 8px; margin: 16px 0; font-size: 15px; }
 .plan-panel input,.plan-panel textarea,.plan-panel select { width: 100%; min-height: 44px; padding: 12px; color: inherit; background: var(--background); border: 1px solid var(--border); border-radius: 8px; font: inherit; }
+.plan-panel input[type='checkbox'], .ws-brief input[type='checkbox'] { width: 20px; height: 20px; min-height: 20px; padding: 0; margin-right: 8px; vertical-align: middle; accent-color: var(--primary); }
 .plan-panel textarea { resize: vertical; }
 .plan-task { min-width: 0; margin: 20px 0; padding: 20px; border: 1px solid var(--border); border-radius: 12px; overflow-wrap: anywhere; }
 .plan-task legend { padding: 0 8px; font-weight: 600; }

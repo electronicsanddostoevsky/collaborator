@@ -1,5 +1,13 @@
 # Collaborator platform history
 
+## 2026-09-10 — User-connected Codex
+
+- Connect an installed Codex app server through the local companion; use a separate ChatGPT sign-in profile and discover subscription models and allowance summaries.
+- Support Codex alongside Ollama in mission planning and Blender workshops. Require explicit cloud-context consent per run, retain the provider/model label, and refuse automatic API-key fallback.
+- Keep generation bounded to JSON, disable execution/app/plugin/delegation tools, reject server approval requests, and retain the existing trusted local renderer and human mission review.
+- Test native Windows Codex 0.153.4 with a real Plus-backed Astra work plan (23 seconds) and editable Blender/GLB result (16 seconds). Validate the plan with the application contract and inspect the rendered blockout. This is not general autonomous tool control or a pooled worker service.
+- Add MVP/scale acceptance work, a staged launch plan and an assumption-based INR budget in docs/MVP-AND-LAUNCH.md.
+
 ## 2026-09-10 — Saved project context for local work
 
 - Fetch the exact mission text snapshot when starting a claimed task, save it locally as data, and include it in result bundles. Workspace filenames are never extracted or executed.

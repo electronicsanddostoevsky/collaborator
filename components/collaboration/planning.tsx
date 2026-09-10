@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { validPlan, type WorkPlan, type PlanTask } from '@/lib/planning';
 import Actions from './actions';
+import CodexConnection, { agentLabel } from './codex-connection';
 
 type SharedPlan = {
   canDecide: boolean;
@@ -106,6 +107,8 @@ export default function Planning({
   mission: string;
   title: string;
 }) {
+  const [cloudConsent, setCloudConsent] = useState(false),
+    [draftModel, setDraftModel] = useState('');
   const [overview, setOverview] = useState<Overview>({
       plans: [],
       canApprove: false,
@@ -183,19 +186,20 @@ export default function Planning({
     setModel(s.models[0] || '');
     setConnected(true);
     setPhase(
-      'Connected. Planning uses your local model and does not execute project tasks.',
+      'Connected. Choose a local or connected Codex model. Planning does not execute project tasks.',
     );
   }
   async function generate() {
     const id = crypto.randomUUID();
     active.current = id;
-    setPhase('Your local agent is drafting a plan…');
+    setPhase('Your selected agent is drafting a plan…');
     try {
       await local('/run', {
         id,
         mission,
         tool: 'mission-planner',
         model,
+        cloudConsent,
         prompt: brief,
       });
       const until = Date.now() + 300000;
@@ -216,6 +220,8 @@ export default function Planning({
               'The model returned a plan with missing fields or invalid dependencies. Try a narrower brief.',
             );
           setDraft(value);
+          setDraftModel(model);
+          setCloudConsent(false);
           setEditing(null);
           draftId.current = crypto.randomUUID();
           setPhase(
@@ -243,7 +249,7 @@ export default function Planning({
         revision: plan?.revision,
         body: draft,
         brief,
-        model: model || 'Human draft',
+        model: editing?.model || draftModel || 'Human draft',
         feedback: decision,
       }),
     });
@@ -267,8 +273,8 @@ export default function Planning({
       <section className="plan-panel">
         <h2>From a broad idea to agreed work</h2>
         <p>
-          Your local agent can suggest a small plan. The mission lead reviews it
-          before tasks enter the shared board. No project work runs
+          Your chosen agent can suggest a small plan. The mission lead reviews
+          it before tasks enter the shared board. No project work runs
           automatically.
         </p>
         <label>
@@ -276,12 +282,12 @@ export default function Planning({
           <textarea
             rows={4}
             value={brief}
-            maxLength={4000}
+            maxLength={3000}
             onChange={(e) => setBrief(e.target.value)}
           />
         </label>
         <details>
-          <summary>Connect a local agent</summary>
+          <summary>Connect your computer and agent</summary>
           <p>
             Open the updated local workshop, start it, and copy its pairing
             code.
@@ -307,18 +313,50 @@ export default function Planning({
             Connect agent
           </button>
           <label>
-            Local model
-            <select value={model} onChange={(e) => setModel(e.target.value)}>
+            Agent model
+            <select
+              value={model}
+              onChange={(e) => {
+                setModel(e.target.value);
+                setCloudConsent(false);
+              }}
+            >
               {models.map((m) => (
-                <option key={m}>{m}</option>
+                <option key={m} value={m}>
+                  {agentLabel(m)}
+                </option>
               ))}
             </select>
           </label>
         </details>
+        {connected && (
+          <CodexConnection
+            request={async (path, payload) =>
+              (await local(path, payload)).json()
+            }
+            changed={connect}
+          />
+        )}
+        {model.startsWith('codex:') && (
+          <label>
+            <input
+              type="checkbox"
+              checked={cloudConsent}
+              onChange={(e) => setCloudConsent(e.target.checked)}
+            />{' '}
+            Send this planning brief to Codex using my ChatGPT allowance.
+          </label>
+        )}
         <div className="plan-buttons">
           <button
             className="primary"
-            disabled={busy || !connected || !model || brief.length < 10}
+            disabled={
+              busy ||
+              !connected ||
+              !model ||
+              brief.length < 10 ||
+              (model.startsWith('codex:') && !cloudConsent)
+            }
             onClick={() => act(generate)}
           >
             Ask AI for a work plan
@@ -328,6 +366,7 @@ export default function Planning({
             disabled={busy}
             onClick={() => {
               setEditing(null);
+              setDraftModel('');
               setDraft({
                 summary:
                   'Describe the proposed approach and its first useful milestone.',
