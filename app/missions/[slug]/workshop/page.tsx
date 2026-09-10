@@ -3,10 +3,13 @@ import { missionDefinition } from '@/db/mission-git';
 import { notFound } from 'next/navigation';
 export default async function Page({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ task?: string }>;
 }) {
   const { slug } = await params;
+  const { task } = await searchParams;
   const mission = await missionDefinition(slug);
   if (!mission) notFound();
   return (
@@ -35,7 +38,10 @@ export default async function Page({
         <a className="text-button" href={'/missions/' + slug + '/plan'}>
           Plan work with AI and approve tasks ↗
         </a>
-        <Workshop mission={slug} />
+        <Workshop
+          mission={slug}
+          taskId={typeof task === 'string' ? task : undefined}
+        />
       </main>
     </>
   );

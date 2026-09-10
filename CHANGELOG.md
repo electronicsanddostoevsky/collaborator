@@ -1,5 +1,13 @@
 # Collaborator platform history
 
+## 2026-09-10 — Task-linked local contributions
+
+- Open claimed work in a task-specific workshop with its brief, acceptance criteria, declared mission revision, and approved tools.
+- Preserve task inputs through local runs and immutable upload retries. Reject stale claims, foreign mission revisions, and tools outside the approved task requirements.
+- Sharing sends the task for review. Scoped lead acceptance atomically completes it and adds the artifact reference to mission Git; requested changes reopen it.
+- Verify permission boundaries, task transitions, duplicate submissions, revision requests, and Git references with real SQLite integration tests; test local request context validation over HTTP.
+- Recorded input revisions are declarations, not proof that a tool loaded every workspace file. Shared workers and automatic input retrieval remain future work.
+
 ## 2026-09-09 — Local Blender workshop
 
 - Add a guided describe, generate, preview, revise, share, and accept workflow to the Mahabharata mission.

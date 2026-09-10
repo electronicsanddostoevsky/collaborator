@@ -18,6 +18,9 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 type Job = {
+  taskId?: string;
+  taskRevision?: number;
+  inputHead?: string;
   mission?: string;
   tool?: string;
   id: string;
@@ -29,6 +32,7 @@ type Job = {
   parent?: string;
 };
 type Status = {
+  taskContext?: boolean;
   tools?: Capability[];
   version?: number;
   blender: boolean;
@@ -38,6 +42,8 @@ type Status = {
   active: string | null;
 };
 type Shared = {
+  action_id?: string | null;
+  canAccept?: boolean;
   id: string;
   prompt: string;
   model: string;
@@ -128,6 +134,19 @@ function Review({
           <p>{item.feedback}</p>
         </blockquote>
       )}
+      {item.action_id && (
+        <a className="text-button" href={'/missions/' + mission + '/plan'}>
+          Linked task and review history ↗
+        </a>
+      )}
+      {item.action_id && item.status === 'changes_requested' && (
+        <a
+          className="text-button"
+          href={'/missions/' + mission + '/workshop?task=' + item.action_id}
+        >
+          Open task for its next iteration ↗
+        </a>
+      )}
       {canAccept && item.status === 'shared' && (
         <form
           onSubmit={(e) => {
@@ -169,9 +188,34 @@ function Review({
 }
 export default function Workshop({
   mission = 'mahabharata',
+  taskId,
 }: {
   mission?: string;
+  taskId?: string;
 }) {
+  type TaskContext = {
+    id: string;
+    title: string;
+    revision: number;
+    inputHead: string;
+    prompt: string;
+    tools: string[];
+  };
+  const [taskContext, setTaskContext] = useState<TaskContext | null>(null);
+  const readTask = useCallback(async () => {
+    if (!taskId) return null;
+    const value = await result<TaskContext>(
+      await fetch(
+        '/api/task-context?mission=' +
+          encodeURIComponent(mission) +
+          '&task=' +
+          encodeURIComponent(taskId),
+        { cache: 'no-store' },
+      ),
+    );
+    setTaskContext(value);
+    return value;
+  }, [mission, taskId]);
   const [requirements, setRequirements] = useState<ToolRequirement[]>([]),
     [tool, setTool] = useState(''),
     [apiId, setApiId] = useState(''),
@@ -221,26 +265,38 @@ export default function Workshop({
     const stamp = generation.current;
     const d = await request<Status>('/status');
     if (stamp !== generation.current) return;
-    d.jobs = d.jobs.filter((j) => (j.mission || 'mahabharata') === mission && j.tool !== 'mission-planner');
+    d.jobs = d.jobs.filter(
+      (j) =>
+        (j.mission || 'mahabharata') === mission &&
+        j.tool !== 'mission-planner' &&
+        (!taskId || j.taskId === taskId),
+    );
     setStatus(d);
     setConnected(true);
     setModel((m) => (d.models.includes(m) ? m : d.models[0] || ''));
     setSelected((s) =>
       d.jobs.some((j) => j.id === s) ? s : d.jobs[0]?.id || '',
     );
-  }, [request, mission]);
+  }, [request, mission, taskId]);
   const loadShared = useCallback(async () => {
     const d = await result<{ artifacts: Shared[]; canAccept: boolean }>(
       await fetch('/api/workshop?mission=' + encodeURIComponent(mission) + '', {
         cache: 'no-store',
       }),
     );
-    setShared(d.artifacts);
+    setShared(d.artifacts.filter((a) => !taskId || a.action_id === taskId));
     setCanAccept(d.canAccept);
-  }, [mission]);
+  }, [mission, taskId]);
   useEffect(() => {
     loadShared().catch((e) => setError(e.message));
   }, [loadShared]);
+  useEffect(() => {
+    readTask()
+      .then((t) => {
+        if (t) setPrompt(t.prompt);
+      })
+      .catch((e) => setError(e.message));
+  }, [readTask]);
   useEffect(() => {
     if (!connected) return;
     let disposed = false;
@@ -334,12 +390,22 @@ export default function Workshop({
   }
   async function share() {
     if (!job) return;
+    if (taskId && job.taskId !== taskId)
+      throw Error(
+        'Choose a run made for this task. Older free experiments cannot be attached as task work.',
+      );
     const q = new URLSearchParams({
       mission,
       id: job.id,
       prompt: job.prompt,
       model: job.model,
     });
+    if (job.tool) q.set('tool', job.tool);
+    if (job.taskId) {
+      q.set('taskId', job.taskId);
+      q.set('taskRevision', String(job.taskRevision));
+      q.set('inputHead', job.inputHead || '');
+    }
     if (!sharedJob)
       await result(
         await fetch('/api/workshop?' + q, {
@@ -395,6 +461,24 @@ export default function Workshop({
   }, [requirements]);
   return (
     <>
+      {taskId && (
+        <section className="plan-panel">
+          <h2>{taskContext?.title || 'Loading task context'}</h2>
+          <p>
+            This run will be linked to the task and its recorded mission
+            snapshot. Sharing a result sends the task for review.
+          </p>
+          {taskContext && (
+            <p>
+              Task revision {taskContext.revision} · Required tools:{' '}
+              {taskContext.tools.join(', ') || 'Choose a suitable mission tool'}
+            </p>
+          )}
+          <a className="text-button" href={'/missions/' + mission + '/plan'}>
+            Return to the task board ↗
+          </a>
+        </section>
+      )}
       <MissionTools mission={mission} onChange={setRequirements} />
       <div className="ws-statusbar">
         <span className={ready ? 'ws-indicator online' : 'ws-indicator'} />
@@ -425,6 +509,13 @@ export default function Workshop({
             onSubmit={(e) => {
               e.preventDefault();
               act(async () => {
+                const context = await readTask();
+                if (context && !status?.taskContext)
+                  throw Error(
+                    'Restart with the updated workshop download to support task-linked runs.',
+                  );
+                if (context?.tools.length && !context.tools.includes(tool))
+                  throw Error('Select one of this task’s approved tools.');
                 runId.current ??= crypto.randomUUID();
                 const j = await request<Job>('/run', {
                   id: runId.current,
@@ -433,6 +524,13 @@ export default function Workshop({
                   mission,
                   tool,
                   parent,
+                  ...(context
+                    ? {
+                        taskId: context.id,
+                        taskRevision: context.revision,
+                        inputHead: context.inputHead,
+                      }
+                    : {}),
                 });
                 setSelected(j.id);
                 runId.current = null;
@@ -686,8 +784,8 @@ export default function Workshop({
               {connected ? 'Workshop connected' : 'Connect your computer'}
             </summary>
             <p>
-              Open Start workshop on this PC, allow access, then use Copy pairing
-              code in the local window and paste it here.
+              Open Start workshop on this PC, allow access, then use Copy
+              pairing code in the local window and paste it here.
             </p>
             <label>
               Pairing code
@@ -887,9 +985,10 @@ export default function Workshop({
                 mission={mission}
                 key={item.id}
                 item={item}
-                canAccept={canAccept}
+                canAccept={canAccept || !!item.canAccept}
                 busy={busy}
                 revise={
+                  (!item.action_id || item.action_id === taskId) &&
                   status?.jobs.some(
                     (j) =>
                       j.id === item.id && (j.tool || 'blender') === 'blender',

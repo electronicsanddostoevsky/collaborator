@@ -241,6 +241,10 @@ export const workshopArtifacts = sqliteTable(
     reviewer: text('reviewer'),
     reviewedAt: text('reviewed_at'),
     previewKey: text('preview_key'),
+    actionId: text('action_id'),
+    actionRevision: integer('action_revision'),
+    inputHead: text('input_head'),
+    tool: text('tool'),
     createdAt: text('created_at').notNull(),
   },
   (t) => [

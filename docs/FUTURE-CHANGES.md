@@ -12,6 +12,8 @@ Updated 10 September 2026. This is a prioritized backlog, not a claim that the l
 
 ## Prioritized next changes
 
+Task-linked contributions are implemented: claimed tasks open a scoped workshop, retain declared input revisions, and submit artifacts for scoped lead review. Acceptance updates the task and mission Git together; requested changes reopen work. Automatic workspace input retrieval, shared worker leases, and the real multi-contributor trial remain pending.
+
 | ID | Priority / state | Change | Definition of done | Dependency / challenge |
 | --- | --- | --- | --- | --- |
 | W-01 | Partial / local control window implemented | Easier connection and reliable restart | Signed installer, launch shortcut, explicit local consent, supported-browser connection tests, reconnect after PC restart | Local-network browser permissions and installer signing; current manual pairing remains |

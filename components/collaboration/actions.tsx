@@ -231,15 +231,32 @@ function ActionCard({
     if (attempt.current?.operation !== operation)
       attempt.current = { id: crypto.randomUUID(), operation };
     try {
-      await request({
-        id: a.id,
-        eventId: attempt.current.id,
-        mission: a.mission,
-        revision: a.revision,
-        operation,
-        body,
-        url,
-      });
+      if (a.review_artifact && ['accept', 'revise'].includes(operation)) {
+        const response = await fetch(
+          '/api/workshop?mission=' +
+            encodeURIComponent(a.mission) +
+            '&id=' +
+            a.review_artifact +
+            '&action=' +
+            operation,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ feedback: body }),
+          },
+        );
+        const data = (await response.json()) as { error?: string };
+        if (!response.ok) throw Error(data.error || 'Review failed.');
+      } else
+        await request({
+          id: a.id,
+          eventId: attempt.current.id,
+          mission: a.mission,
+          revision: a.revision,
+          operation,
+          body,
+          url,
+        });
       attempt.current = null;
       setBody('');
       setUrl('');
@@ -267,6 +284,27 @@ function ActionCard({
       )}
       <span className="small-label">{a.kind}</span>
       <p className="post-body">{a.brief}</p>
+      {a.review_artifact && (
+        <a
+          className="text-button"
+          href={
+            '/api/workshop?mission=' +
+            encodeURIComponent(a.mission) +
+            '&id=' +
+            a.review_artifact
+          }
+        >
+          Download the submitted tool result ↗
+        </a>
+      )}
+      {a.mine && a.status === 'doing' && (
+        <a
+          className="primary"
+          href={'/missions/' + a.mission + '/workshop?task=' + a.id}
+        >
+          Work on this with connected tools ↗
+        </a>
+      )}
       <div className="definition-done">
         <strong>Done means</strong>
         <p>{a.done_when}</p>

@@ -121,7 +121,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path=='/status':
             try: models=[m['name'] for m in ollama('/api/tags').get('models',[]) if not m.get('remote_host')];problem=''
             except Exception: models=[];problem='Start Ollama and install a local model.'
-            return self.respond({'version':3,'blender':bool(blender()),'models':models,'problem':problem,'tools':capabilities(bool(blender())),'jobs':history(),'active':ACTIVE})
+            return self.respond({'version':3,'taskContext':True,'blender':bool(blender()),'models':models,'problem':problem,'tools':capabilities(bool(blender())),'jobs':history(),'active':ACTIVE})
         bits=self.path.split('/')
         if len(bits)==4 and bits[1]=='files' and bits[3] in ('preview.png','artifact.zip','result.json'):
             try: identifier=str(uuid.UUID(bits[2]))
@@ -148,6 +148,12 @@ class Handler(BaseHTTPRequestHandler):
             if self.path!='/run': return self.respond({'error':'Unknown operation'},404)
             if not isinstance(d.get('prompt'),str) or not 10<=len(d['prompt'])<=3000: raise ValueError('Describe your artifact in 10–3000 characters.')
             tool=d.get('tool','blender');mission=d.get('mission','mahabharata')
+            context={}
+            if d.get('taskId'):
+                task_id=str(uuid.UUID(d['taskId']));revision=d.get('taskRevision');head=d.get('inputHead')
+                if type(revision)!=int or revision<1 or not isinstance(head,str) or len(head)!=40 or any(c not in '0123456789abcdef' for c in head):raise ValueError('Invalid task context.')
+                context={'taskId':task_id,'taskRevision':revision,'inputHead':head}
+            elif d.get('taskRevision') is not None or d.get('inputHead') is not None:raise ValueError('Task context requires a task ID.')
             if not isinstance(mission,str) or not 1<=len(mission)<=80 or any(c not in 'abcdefghijklmnopqrstuvwxyz0123456789-' for c in mission):raise ValueError('Invalid mission.')
             capability=next((c for c in capabilities(bool(blender())) if c['id']==tool),None)
             if not capability or not capability['available']:raise ValueError('This tool has no available operation on this computer.')
@@ -163,17 +169,19 @@ class Handler(BaseHTTPRequestHandler):
                 parent=str(uuid.UUID(parent))
                 if not (RUNS/parent/'scene.json').is_file(): raise ValueError('Previous scene unavailable.')
                 parent_job=json.loads((RUNS/parent/'job.json').read_text())
+                if parent_job.get('taskId')!=context.get('taskId'):raise ValueError('Choose a parent from the same task.')
                 if parent_job.get('mission','mahabharata')!=mission or parent_job.get('tool','blender')!=tool:raise ValueError('Choose a parent from the same mission and tool.')
             with LOCK:
                 identifier=str(uuid.UUID(d['id']))
                 if (RUNS/identifier/'job.json').is_file():
                     existing=json.loads((RUNS/identifier/'job.json').read_text())
+                    if any(existing.get(k)!=context.get(k) for k in ('taskId','taskRevision','inputHead')):return self.respond({'error':'Run ID belongs to different task inputs.'},409)
                     if any(existing.get(k)!=v for k,v in [('prompt',d['prompt']),('model',d['model']),('parent',parent)]) or existing.get('mission','mahabharata')!=mission or existing.get('tool','blender')!=tool:return self.respond({'error':'Run ID belongs to a different request.'},409)
                     return self.respond(existing)
                 if STOPPING:return self.respond({'error':'Workshop is stopping. Start it again before requesting work.'},409)
                 if ACTIVE: return self.respond({'error':'A job is already running.'},409)
                 if len(list(RUNS.glob('*/job.json')))>=100: raise ValueError('The local pilot has 100 retained runs. Archive old runs before continuing.')
-                job={'id':identifier,'prompt':d['prompt'],'model':d['model'],'parent':parent,'status':'queued','created':time.time(),'mission':mission,'tool':tool}
+                job={'id':identifier,'prompt':d['prompt'],'model':d['model'],'parent':parent,'status':'queued','created':time.time(),'mission':mission,'tool':tool,**context}
                 ACTIVE=job['id'];CANCEL.clear();save(job)
                 threading.Thread(target=execute,args=(job,),daemon=True).start()
             return self.respond(job,201)

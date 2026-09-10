@@ -59,9 +59,15 @@ class WorkshopTests(unittest.TestCase):
                     with urlopen(request) as response:return response.status,json.load(response)
                 except HTTPError as e:return e.code,json.load(e)
             try:
-                data={'id':str(uuid.uuid4()),'model':'test','prompt':'Make a rough object.'}
+                data={'id':str(uuid.uuid4()),'model':'test','prompt':'Make a rough object.','taskId':str(uuid.uuid4()),'taskRevision':1,'inputHead':'a'*40}
+                self.assertEqual(post('/run',{**data,'taskRevision':True})[0],400)
+                self.assertEqual(post('/run',{**data,'inputHead':'not-a-head'})[0],400)
                 self.assertEqual(post('/run',data)[0],201)
                 self.assertEqual(post('/run',data)[0],200)
+                self.assertEqual(post('/run',{**data,'taskRevision':2})[0],409)
+                self.assertEqual(post('/run',{**data,'taskId':str(uuid.uuid4())})[0],409)
+                (Path(directory)/data['id']/'scene.json').write_text('{}')
+                self.assertEqual(post('/run',{**data,'id':str(uuid.uuid4()),'taskId':str(uuid.uuid4()),'parent':data['id']})[0],400)
                 self.assertEqual(post('/run',{**data,'prompt':'A different brief.'})[0],409)
                 self.assertEqual(post('/cancel',{'id':str(uuid.uuid4())})[0],409)
                 self.assertFalse(companion.CANCEL.is_set())

@@ -1,10 +1,22 @@
 import { database, bucket } from '@/db/client';
 import { missionAccess } from '@/db/mission-access';
 import { boundedBody } from '@/lib/artifacts';
-import { ensureRepository, readCommit, prepareCommit } from '@/db/mission-git';
+import {
+  ensureRepository,
+  readCommit,
+  prepareCommit,
+  ancestry,
+} from '@/db/mission-git';
+import { leadScopes, coversModules, scopeGuard } from '@/db/team-access';
+import { moduleKey } from '@/lib/teams';
 const json = (body: unknown, status = 200) =>
   Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 type Artifact = {
+  action_id: string | null;
+  action_revision: number | null;
+  input_head: string | null;
+  tool: string | null;
+  module?: string | null;
   id: string;
   mission: string;
   user_id: string;
@@ -62,11 +74,22 @@ export async function GET(req: Request) {
     }
     const rows = await database()
       .prepare(
-        "SELECT id,author,prompt,model,size,sha256,status,created_at,feedback,reviewer,reviewed_at,(preview_key IS NOT NULL) AS hasPreview FROM workshop_artifacts WHERE mission=? AND status!='uploading' ORDER BY created_at DESC LIMIT 100",
+        "SELECT w.id,w.author,w.prompt,w.model,w.size,w.sha256,w.status,w.created_at,w.feedback,w.reviewer,w.reviewed_at,w.action_id,w.action_revision,w.input_head,w.tool,t.module,(w.preview_key IS NOT NULL) AS hasPreview FROM workshop_artifacts w LEFT JOIN planned_tasks t ON t.action_id=w.action_id WHERE w.mission=? AND w.status!='uploading' ORDER BY w.created_at DESC LIMIT 100",
       )
       .bind(mission)
-      .all();
-    return json({ artifacts: rows.results, canAccept: access.owner });
+      .all<Artifact>();
+    const scopes = await leadScopes(mission, access.id);
+    return json({
+      artifacts: rows.results.map((r) => ({
+        ...r,
+        canAccept: coversModules(
+          access.owner,
+          scopes,
+          r.module ? [r.module] : [],
+        ),
+      })),
+      canAccept: access.owner,
+    });
   } catch {
     return json({ error: 'Workshop results could not be loaded.' }, 503);
   }
@@ -135,17 +158,38 @@ export async function POST(req: Request) {
       return json({ saved: true }, 201);
     }
     if (['accept', 'revise'].includes(q.get('action') || '')) {
-      if (!access.owner)
-        return json(
-          { error: 'Only the mission maintainer can accept a result.' },
-          403,
-        );
       const item = await db
         .prepare('SELECT * FROM workshop_artifacts WHERE id=? AND mission=?')
         .bind(id, mission)
         .first<Artifact>();
       if (!item || item.status === 'uploading')
         return json({ error: 'Result not found.' }, 404);
+      const task = item.action_id
+        ? await db
+            .prepare(
+              'SELECT a.*,t.module FROM mission_actions a LEFT JOIN planned_tasks t ON t.action_id=a.id WHERE a.id=? AND a.mission=?',
+            )
+            .bind(item.action_id, mission)
+            .first<{
+              id: string;
+              revision: number;
+              status: string;
+              assignee_id: string | null;
+              module: string | null;
+            }>()
+        : null;
+      const scopes = await leadScopes(mission, access.id),
+        modules = task?.module ? [moduleKey(task.module)] : ['__unscoped__'];
+      if (
+        !coversModules(access.owner, scopes, task?.module ? [task.module] : [])
+      )
+        return json(
+          {
+            error:
+              'Only the mission owner or the linked task’s subdivision lead can review this result.',
+          },
+          403,
+        );
       const decision =
         q.get('action') === 'accept' ? 'accepted' : 'changes_requested';
       if (item.status === decision) return json({ saved: true });
@@ -157,6 +201,35 @@ export async function POST(req: Request) {
           },
           409,
         );
+      if (
+        item.action_id &&
+        (!task ||
+          task.status !== 'review' ||
+          task.revision !== Number(item.action_revision) + 1 ||
+          task.assignee_id !== item.user_id)
+      )
+        return json(
+          {
+            error:
+              'The linked task changed. Refresh its board before reviewing.',
+          },
+          409,
+        );
+      const taskGuard =
+        "(? IS NULL OR EXISTS(SELECT 1 FROM mission_actions WHERE id=? AND status='review' AND revision=? AND assignee_id=?))";
+      const taskArgs = [
+        item.action_id,
+        item.action_id,
+        Number(item.action_revision) + 1,
+        item.user_id,
+      ];
+      const roleArgs = [
+        Number(access.owner),
+        JSON.stringify(modules),
+        mission,
+        access.id,
+      ];
+      const event = crypto.randomUUID();
       let review: { feedback?: unknown };
       try {
         review = JSON.parse(
@@ -177,13 +250,49 @@ export async function POST(req: Request) {
       const feedback = review.feedback.trim(),
         reviewedAt = new Date().toISOString();
       if (decision === 'changes_requested') {
-        const r = await db
-          .prepare(
-            "UPDATE workshop_artifacts SET status='changes_requested',feedback=?,reviewer=?,reviewed_at=? WHERE id=? AND status='shared'",
-          )
-          .bind(feedback, access.author, reviewedAt, id)
-          .run();
-        return r.meta.changes
+        const statements = [
+          db
+            .prepare(
+              "UPDATE workshop_artifacts SET status='changes_requested',feedback=?,reviewer=?,reviewed_at=? WHERE id=? AND status='shared' AND " +
+                taskGuard +
+                ' AND ' +
+                scopeGuard,
+            )
+            .bind(
+              feedback,
+              access.author,
+              reviewedAt,
+              id,
+              ...taskArgs,
+              ...roleArgs,
+            ),
+        ];
+        if (task) {
+          statements.push(
+            db
+              .prepare(
+                "UPDATE mission_actions SET status='doing',revision=revision+1,last_event=?,updated_at=? WHERE id=? AND revision=? AND EXISTS(SELECT 1 FROM workshop_artifacts WHERE id=? AND status='changes_requested' AND reviewed_at=?)",
+              )
+              .bind(event, reviewedAt, task.id, task.revision, id, reviewedAt),
+          );
+          statements.push(
+            db
+              .prepare(
+                "INSERT INTO action_events(id,action_id,user_id,author,kind,body,url,revision,created_at) SELECT ?,id,?,?,'revise',?,'',revision,? FROM mission_actions WHERE id=? AND last_event=?",
+              )
+              .bind(
+                event,
+                access.id,
+                access.author,
+                feedback,
+                reviewedAt,
+                task.id,
+                event,
+              ),
+          );
+        }
+        const r = await db.batch(statements);
+        return r[0].meta.changes
           ? json({ saved: true })
           : json({ error: 'Review changed. Refresh.' }, 409);
       }
@@ -197,6 +306,9 @@ export async function POST(req: Request) {
             sha256: item.sha256,
             prompt: item.prompt,
             model: item.model,
+            task: item.action_id,
+            inputHead: item.input_head,
+            tool: item.tool,
             review: { feedback, reviewer: access.author, reviewedAt },
             download:
               '/api/workshop?mission=' +
@@ -239,9 +351,19 @@ export async function POST(req: Request) {
         commit.statement,
         db
           .prepare(
-            "UPDATE mission_repositories SET head=? WHERE mission=? AND head=? AND EXISTS(SELECT 1 FROM workshop_artifacts WHERE id=? AND status='shared')",
+            "UPDATE mission_repositories SET head=? WHERE mission=? AND head=? AND EXISTS(SELECT 1 FROM workshop_artifacts WHERE id=? AND status='shared') AND " +
+              taskGuard +
+              ' AND ' +
+              scopeGuard,
           )
-          .bind(commit.row.oid, mission, repo.head, id),
+          .bind(
+            commit.row.oid,
+            mission,
+            repo.head,
+            id,
+            ...taskArgs,
+            ...roleArgs,
+          ),
         db
           .prepare(
             "UPDATE workshop_artifacts SET status='accepted',feedback=?,reviewer=?,reviewed_at=? WHERE id=? AND status='shared' AND EXISTS(SELECT 1 FROM mission_repositories WHERE mission=? AND head=?)",
@@ -254,6 +376,35 @@ export async function POST(req: Request) {
             mission,
             commit.row.oid,
           ),
+        ...(task
+          ? [
+              db
+                .prepare(
+                  "UPDATE mission_actions SET status='done',revision=revision+1,last_event=?,updated_at=? WHERE id=? AND revision=? AND EXISTS(SELECT 1 FROM mission_repositories WHERE mission=? AND head=?)",
+                )
+                .bind(
+                  event,
+                  reviewedAt,
+                  task.id,
+                  task.revision,
+                  mission,
+                  commit.row.oid,
+                ),
+              db
+                .prepare(
+                  "INSERT INTO action_events(id,action_id,user_id,author,kind,body,url,revision,created_at) SELECT ?,id,?,?,'accept',?,'',revision,? FROM mission_actions WHERE id=? AND last_event=?",
+                )
+                .bind(
+                  event,
+                  access.id,
+                  access.author,
+                  feedback,
+                  reviewedAt,
+                  task.id,
+                  event,
+                ),
+            ]
+          : []),
       ]);
       return result[1].meta.changes
         ? json({ saved: true })
@@ -261,6 +412,12 @@ export async function POST(req: Request) {
     }
     const prompt = q.get('prompt') || '',
       model = q.get('model') || '';
+    const taskId = q.get('taskId'),
+      taskRevision = taskId ? Number(q.get('taskRevision')) : null,
+      inputHead = q.get('inputHead'),
+      tool = q.get('tool');
+    if (tool && !/^[a-z][a-z0-9-]{1,39}$/.test(tool))
+      return json({ error: 'Invalid tool ID.' }, 400);
     if (
       prompt.length < 10 ||
       prompt.length > 3000 ||
@@ -275,12 +432,64 @@ export async function POST(req: Request) {
     if (previous)
       return previous.user_id === access.id &&
         previous.mission === mission &&
+        previous.action_id === taskId &&
+        previous.action_revision === taskRevision &&
+        previous.input_head === inputHead &&
+        previous.tool === tool &&
+        previous.prompt === prompt &&
+        previous.model === model &&
         previous.status !== 'uploading'
         ? json({ saved: true })
         : json(
             { error: 'This upload is pending or its ID is already used.' },
             409,
           );
+    if (taskId) {
+      if (
+        !Number.isInteger(taskRevision) ||
+        !inputHead ||
+        !/^[0-9a-f]{40}$/.test(inputHead) ||
+        !tool
+      )
+        return json(
+          { error: 'Missing task revision, tool or input history.' },
+          400,
+        );
+      const task = await db
+        .prepare(
+          "SELECT id FROM mission_actions WHERE id=? AND mission=? AND assignee_id=? AND status='doing' AND revision=?",
+        )
+        .bind(taskId, mission, access.id, taskRevision)
+        .first();
+      if (!task)
+        return json(
+          { error: 'The task is no longer assigned to you at this revision.' },
+          409,
+        );
+      const repo = await ensureRepository(mission);
+      if (!(await ancestry(repo.head)).some((c) => c.oid === inputHead))
+        return json(
+          { error: 'Input history does not belong to this mission.' },
+          400,
+        );
+      const planned = await db
+        .prepare(
+          'SELECT t.task_key,p.body FROM planned_tasks t JOIN mission_plans p ON p.id=t.plan_id WHERE t.action_id=?',
+        )
+        .bind(taskId)
+        .first<{ task_key: string; body: string }>();
+      const tools = planned
+        ? JSON.parse(planned.body).tasks.find(
+            (t: { key: string }) => t.key === planned.task_key,
+          )?.tools || []
+        : [];
+      if (tools.length && !tools.includes(tool))
+        return json(
+          { error: 'This tool is not among the approved task requirements.' },
+          400,
+        );
+    } else if (inputHead || q.get('taskRevision'))
+      return json({ error: 'Task context requires a task ID.' }, 400);
     let bytes: Uint8Array;
     try {
       bytes = await boundedBody(req, 10 * 1024 * 1024);
@@ -299,7 +508,7 @@ export async function POST(req: Request) {
     const key = 'workshop/' + id;
     const reservation = await db
       .prepare(
-        "INSERT INTO workshop_artifacts (id,mission,user_id,author,prompt,model,object_key,size,sha256,status,created_at) SELECT ?,?,?,?,?,?,?,?,?,'uploading',? WHERE (SELECT COALESCE(SUM(size+CASE WHEN preview_key IS NOT NULL THEN 1048576 ELSE 0 END),0) FROM workshop_artifacts WHERE user_id=?)+?<=104857600",
+        "INSERT INTO workshop_artifacts (id,mission,user_id,author,prompt,model,object_key,size,sha256,status,created_at,action_id,action_revision,input_head,tool) SELECT ?,?,?,?,?,?,?,?,?,'uploading',?,?,?,?,? WHERE (SELECT COALESCE(SUM(size+CASE WHEN preview_key IS NOT NULL THEN 1048576 ELSE 0 END),0) FROM workshop_artifacts WHERE user_id=?)+?<=104857600",
       )
       .bind(
         id,
@@ -312,6 +521,10 @@ export async function POST(req: Request) {
         bytes.length,
         hash,
         new Date().toISOString(),
+        taskId,
+        taskRevision,
+        inputHead,
+        tool,
         access.id,
         bytes.length,
       )
@@ -323,10 +536,46 @@ export async function POST(req: Request) {
       );
     try {
       await bucket().put(key, bytes);
-      await db
-        .prepare("UPDATE workshop_artifacts SET status='shared' WHERE id=?")
-        .bind(id)
-        .run();
+      const event = crypto.randomUUID(),
+        now = new Date().toISOString();
+      const statements = [
+        db
+          .prepare(
+            "UPDATE workshop_artifacts SET status='shared' WHERE id=? AND (? IS NULL OR EXISTS(SELECT 1 FROM mission_actions WHERE id=? AND mission=? AND assignee_id=? AND status='doing' AND revision=?))",
+          )
+          .bind(id, taskId, taskId, mission, access.id, taskRevision),
+      ];
+      if (taskId) {
+        statements.push(
+          db
+            .prepare(
+              "UPDATE mission_actions SET status='review',revision=revision+1,last_event=?,updated_at=? WHERE id=? AND revision=? AND EXISTS(SELECT 1 FROM workshop_artifacts WHERE id=? AND status='shared')",
+            )
+            .bind(event, now, taskId, taskRevision, id),
+        );
+        statements.push(
+          db
+            .prepare(
+              "INSERT INTO action_events(id,action_id,user_id,author,kind,body,url,revision,created_at) SELECT ?,id,?,?,'submit',?,?,revision,? FROM mission_actions WHERE id=? AND last_event=?",
+            )
+            .bind(
+              event,
+              access.id,
+              access.author,
+              'Shared a tool result for review: ' + prompt.slice(0, 1000),
+              '/api/workshop?mission=' +
+                encodeURIComponent(mission) +
+                '&id=' +
+                id,
+              now,
+              taskId,
+              event,
+            ),
+        );
+      }
+      const finalized = await db.batch(statements);
+      if (!finalized[0].meta.changes)
+        throw Error('Task changed while uploading.');
     } catch {
       await bucket().delete(key);
       await db

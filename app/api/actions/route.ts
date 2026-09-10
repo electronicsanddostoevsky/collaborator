@@ -36,7 +36,7 @@ export async function GET(req: Request) {
     const db = database();
     const rows = await db
       .prepare(
-        "SELECT a.*,p.module,(SELECT COUNT(*) FROM json_each(p.dependencies) dep LEFT JOIN mission_actions required ON required.id=dep.value WHERE required.id IS NULL OR required.status!='done') blocked FROM mission_actions a LEFT JOIN planned_tasks p ON p.action_id=a.id WHERE a.mission=? ORDER BY a.created_at DESC,a.id DESC LIMIT 100",
+        "SELECT a.*,p.module,(SELECT w.id FROM workshop_artifacts w WHERE w.action_id=a.id AND w.action_revision=a.revision-1 AND w.status='shared' LIMIT 1) review_artifact,(SELECT COUNT(*) FROM json_each(p.dependencies) dep LEFT JOIN mission_actions required ON required.id=dep.value WHERE required.id IS NULL OR required.status!='done') blocked FROM mission_actions a LEFT JOIN planned_tasks p ON p.action_id=a.id WHERE a.mission=? ORDER BY a.created_at DESC,a.id DESC LIMIT 100",
       )
       .bind(mission)
       .all<Row>();
@@ -204,6 +204,22 @@ export async function POST(req: Request) {
       .first<{ module: string }>();
     const scopes = await leadScopes(d.mission, access.id),
       reviewOperation = ['accept', 'revise'].includes(d.operation);
+    if (
+      reviewOperation &&
+      (await db
+        .prepare(
+          "SELECT id FROM workshop_artifacts WHERE action_id=? AND action_revision=? AND status='shared'",
+        )
+        .bind(a.id, a.revision - 1)
+        .first())
+    )
+      return json(
+        {
+          error:
+            'Review the linked tool result so its artifact and task history stay together.',
+        },
+        409,
+      );
     if (!Number.isInteger(d.revision) || a.revision !== d.revision)
       return json(
         { error: 'This action changed. Refresh before trying again.' },

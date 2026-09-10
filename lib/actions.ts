@@ -13,6 +13,7 @@ export const actionEfforts = [
   'Flexible',
 ];
 export type ActionRecord = {
+  review_artifact?: string | null;
   canReview?: boolean;
   module?: string | null;
   blocked?: number;

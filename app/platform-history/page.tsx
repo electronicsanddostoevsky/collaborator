@@ -20,6 +20,16 @@ export default function PlatformHistory() {
         <div className="mission-timeline">
           <article className="timeline-item">
             <span className="small-label">10 SEPTEMBER 2026</span>
+            <h2>From agreed task to reviewed result</h2>
+            <p className="post-body">
+              Open a claimed task in its workshop, create a local result, and
+              send it for review. Acceptance records the artifact in mission Git
+              history and completes the task together. Requested changes reopen
+              the task for another iteration.
+            </p>
+          </article>
+          <article className="timeline-item">
+            <span className="small-label">10 SEPTEMBER 2026</span>
             <h2>Responsibility can grow with the community</h2>
             <p className="post-body">
               People can explicitly join a mission. Its owner can appoint and
