@@ -1,5 +1,19 @@
 # Collaborator
 
+A mission-first platform where people, agents, and locally connected tools help make things exist together. Read the [manifesto](docs/MANIFESTO.md), download its [PDF](public/vision.pdf), and see the [Mahabharata pilot acceptance contract](docs/PILOT-ACCEPTANCE.md).
+
+Current prototype: persistent participation, reviewed contributions, per-mission Git history and forks, modular tool requirements, local Ollama/Blender work, fixed read-only API connections, and a consent-first local control window. Shared worker scheduling, subdivision leadership, and Unreal execution remain under development.
+
+Public source is at https://github.com/electronicsanddostoevsky/collaborator. See [independent continuity and licensing status](docs/INDEPENDENCE.md) before reusing or deploying. The running pilot is private; publishing source does not publish community data.
+
+## Development
+
+Use Node 22.13+ and the locked dependencies: `pnpm install --frozen-lockfile`, then `pnpm dev`. Production validation uses `pnpm exec tsc --noEmit` and `pnpm build`. Route tests use `node tests/collaboration.test.mjs`; local adapter tests use `python tests/workshop_test.py` and `python tests/launcher_test.py`. Native Git is needed for history verification. See the workshop README for local tool setup.
+
+## Development history
+
+The sections below preserve earlier increments and decisions. Consult docs/FUTURE-CHANGES.md for current limitations.
+
 ## Current increment: 0 — Mission explorer
 A private, responsive mission interface. One seeded Mahabharata mission, shared vision, contribution briefs, concept art, and a downloadable mission brief. Following is session-only UI state. No fake community statistics, playable game, accounts, shared writes, or agent execution.
 
@@ -64,3 +78,4 @@ All missions support following without a role commitment. Generic follows persis
 
 ## Versioned working files
 `/missions/[slug]/workspace` lets mission creators/maintainers save small working text files with commit descriptions. Anyone with site access can inspect files and, when allowed, fork the mission. Files carry into forks and survive mission brief edits. Deletes are new revisions; prior contents remain in Git. The pilot accepts flat safe filenames, at most 12 working files plus mission.json, 16 KB per working file, and 64 KB total. mission.json is managed through the mission brief. Files are not executed or rendered as active HTML. Push/pull synchronization and merging are not yet supported.
+
