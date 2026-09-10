@@ -6,6 +6,7 @@ from urllib.request import Request, urlopen, ProxyHandler, build_opener
 from urllib.parse import urlparse
 from scene import validate
 from connectors import capabilities,register,execute_api
+from planner import generate as generate_plan
 
 ROOT=Path(__file__).resolve().parent
 RUNS=ROOT/'runs'; RUNS.mkdir(exist_ok=True)
@@ -52,6 +53,13 @@ def execute(job):
     global ACTIVE,PROCESS
     folder=RUNS/job['id']; start=time.monotonic()
     try:
+        if job.get('tool')=='mission-planner':
+            job['status']='planning';save(job)
+            plan=generate_plan(job,ollama)
+            if CANCEL.is_set():raise InterruptedError()
+            (folder/'result.json').write_text(json.dumps(plan,indent=2),encoding='utf-8')
+            job['status']='ready';job['elapsed']=round(time.monotonic()-start);save(job)
+            return
         if job.get('tool','blender')!='blender':
             job['status']='running';save(job)
             execute_api(job,folder)

@@ -36,3 +36,6 @@ The control window starts stopped and requires consent on each start. Stop works
 A second launch cannot replace an existing workshop. Stop the earlier window (or command-line companion) first. After a PC restart, open Start workshop again and pair with the new code. No automatic login startup is installed. The command-line `python companion.py` path remains available for advanced users.
 
 This is a Python control window, not a signed installer. Windows lifecycle and consent tests pass; macOS/Linux packaging and browser permission flows still require testing.
+
+## AI work planning
+The mission planning page uses the mission-planner capability to request a bounded JSON plan from local Ollama. It needs no Blender or Unreal installation. Generation does not run the proposed tasks. Edit the draft, submit it, and wait for mission-lead approval. Update this entire folder when upgrading: planner.py is required by companion.py.

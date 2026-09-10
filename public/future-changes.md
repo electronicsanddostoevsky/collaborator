@@ -57,3 +57,13 @@ Next technical priority: expand the connector contract to declared operations wi
 Implemented a consent-first control window with Start, Copy pairing code, and Stop. Restart preserves work and rotates credentials; stop blocks new jobs and drains cancellation before closing. Windows uses an exclusive local socket to prevent competing launches. Automated tests cover consent, duplicate launch, stale-code rejection, preserved history, and stop/restart.
 
 Still pending for W-01: a signed installer, OS shortcut registration, browser-to-loopback permission testing, and cross-platform packaging. No automatic startup is enabled.
+
+## Agreed modular plans and public source — 10 September 2026
+
+The source and revised manifesto are now public under electronicsanddostoevsky/collaborator on GitHub, with earlier development history preserved. The running pilot remains private. Licensing terms remain a separate decision; see INDEPENDENCE.md.
+
+Every mission can request a bounded plan from a local model, edit its draft, and submit it. The mission lead can edit a shared proposal and approve or reject it with a note. Approval atomically creates up to 12 shared tasks, links their dependencies, and records the accepted plan in mission Git. Prerequisite tasks must be accepted before dependent tasks can be claimed. Proposals do not execute project work.
+
+A real Qwen3 8B planning trial produced a structurally valid three-task Mahabharata plan. This verifies generation and validation, not production quality or Unreal availability. Permission, stale-decision, retry, and dependency tests passed. The pilot caps plans at 40 per mission and all actions at 100; it is not yet a large-team scheduler.
+
+Next: scoped subdivision leads, task-to-tool handoff, durable shared workers, and a real Unreal adapter. The full collaboration trial is defined in PILOT-ACCEPTANCE.md. Forks retain the accepted plan as historical source, but do not automatically copy task assignments or approvals into the new community.

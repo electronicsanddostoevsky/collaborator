@@ -4,6 +4,7 @@ import ts from 'typescript';
 import assert from 'node:assert/strict';
 const sqlite=new DatabaseSync(':memory:');sqlite.exec(readFileSync('drizzle/0000_faithful_carmella_unuscione.sql','utf8'));sqlite.exec(readFileSync('drizzle/0001_strong_cable.sql','utf8'));
 class Statement {constructor(sql,args=[]){this.sql=sql;this.args=args}bind(...args){return new Statement(this.sql,args)}async run(){const r=sqlite.prepare(this.sql).run(...this.args);return {meta:{changes:Number(r.changes)}}}async first(){return sqlite.prepare(this.sql).get(...this.args)||null}}
+sqlite.exec(readFileSync('drizzle/0014_stale_squadron_supreme.sql','utf8'));
 const db={prepare:sql=>new Statement(sql),batch:async statements=>{sqlite.exec('BEGIN');try{const results=statements.map(s=>{const statement=sqlite.prepare(s.sql);if(statement.columns().length)return {results:statement.all(...s.args),meta:{changes:0}};const result=statement.run(...s.args);return {results:[],meta:{changes:Number(result.changes)}}});sqlite.exec('COMMIT');return results}catch(e){sqlite.exec('ROLLBACK');throw e}}};
 globalThis.__testDB=db;
 const source=readFileSync('app/api/collaboration/route.ts','utf8').replace("import { database, maintainerEmail } from '@/db/client';","const database=()=>globalThis.__testDB; const maintainerEmail=()=>globalThis.__testMaintainer||'';");
@@ -239,3 +240,36 @@ const toolsFork=crypto.randomUUID();assert.equal((await missionCall({action:'for
 console.log('PASS: mission-specific defaults, owner-only requirements, stale-write protection, Git snapshots and independent fork requirements.');
 const epicFork=crypto.randomUUID();assert.equal((await missionCall({action:'fork',id:epicFork,sourceMission:'mahabharata',baseOid:(await gitInfo('mahabharata')).repository.head,title:'Another epic interpretation'},'bob')).status,201);assert.deepEqual((await toolCall(null,'bob',epicFork)).data.requirements.map(t=>t.id),['blender','unreal']);
 console.log('PASS: default Mahabharata tool requirements persist in a fork.');
+
+
+globalThis.__planning=await moduleFrom(readFileSync('lib/planning.ts','utf8'));
+const planApi=await moduleFrom(replaceDB(readFileSync('app/api/plans/route.ts','utf8')).replace(/import \{\s*missionAccess\s*\} from '@\/db\/mission-access';/,'const missionAccess=globalThis.__access;').replace(/import \{[^}]+\} from '@\/db\/mission-git';/,'const {ensureRepository,readCommit,prepareCommit}=globalThis.__missionGit;').replace(/import \{[^}]+\} from '@\/lib\/planning';/,'const {validPlan}=globalThis.__planning;').replace(/import \{\s*boundedBody\s*\} from '@\/lib\/artifacts';/,'const {boundedBody}=globalThis.__uploadUtils;'));
+async function planCall(payload,actor,missionId=newId){const headers={'Content-Type':'application/json',Origin:'https://local.test'};if(actor){headers['oai-authenticated-user-id']=actor;headers['oai-authenticated-user-email']=actor+'@example.test'}const r=await planApi[payload?'POST':'GET'](new Request('https://local.test/api/plans?mission='+missionId,{method:payload?'POST':'GET',headers,body:payload?JSON.stringify(payload):undefined}));return {status:r.status,data:await r.json()}}
+const taskDefinition={key:'reference',module:'Research',title:'Agree a reference brief',brief:'Gather and agree the references for the first prototype.',inputs:'Mission vision',outputs:'Reviewed reference brief',doneWhen:'The lead accepts the references and scope.',dependsOn:[],tools:[]};
+const proposedPlan={id:crypto.randomUUID(),mission:newId,operation:'propose',brief:'Build a small first community prototype.',model:'Local test model',body:{summary:'Agree references, then build a tiny reviewed prototype.',tasks:[taskDefinition,{...taskDefinition,key:'prototype',module:'Design',title:'Build a small prototype',dependsOn:['reference']}]}};
+assert.equal((await planCall(proposedPlan)).status,401);
+assert.equal((await planCall(proposedPlan,'outsider')).status,403);
+assert.equal((await planCall({...proposedPlan,body:{...proposedPlan.body,tasks:[{...taskDefinition,dependsOn:['missing']}] }},'alice')).status,400);
+assert.equal(globalThis.__planning.validPlan({...proposedPlan.body,tasks:[{...taskDefinition,dependsOn:['prototype']},proposedPlan.body.tasks[1]]}),false);
+assert.equal((await planCall(proposedPlan,'bob')).status,201);
+assert.equal((await planCall(proposedPlan,'bob')).status,200);
+assert.equal((await planCall({...proposedPlan,brief:'Changed retry payload'},'bob')).status,409);
+const approvePlan={operation:'approve',id:proposedPlan.id,mission:newId,revision:1,feedback:'The scope is small and the review criteria are clear.'};
+assert.equal((await planCall(approvePlan,'bob')).status,403);
+assert.equal((await planCall({...approvePlan,operation:'edit',body:proposedPlan.body},'alice')).status,200);
+assert.equal((await planCall(approvePlan,'alice')).status,409);
+const acceptedPlan=await planCall({...approvePlan,revision:2},'alice');assert.equal(acceptedPlan.status,200,JSON.stringify(acceptedPlan.data));
+assert.equal((await planCall({...approvePlan,revision:2},'alice')).status,409);
+const links=sqlite.prepare('SELECT * FROM planned_tasks WHERE plan_id=? ORDER BY task_key').all(proposedPlan.id);assert.equal(links.length,2);
+const referenceAction=links.find(t=>t.task_key==='reference').action_id,prototypeAction=links.find(t=>t.task_key==='prototype').action_id;
+assert.equal((await actionCall({operation:'claim',id:prototypeAction,eventId:crypto.randomUUID(),mission:newId,revision:1},'bob')).status,409);
+assert.equal((await actionCall({operation:'claim',id:referenceAction,eventId:crypto.randomUUID(),mission:newId,revision:1},'bob')).status,200);
+assert.equal((await actionCall({operation:'submit',id:referenceAction,eventId:crypto.randomUUID(),mission:newId,revision:2,body:'References are ready for the lead to inspect.'},'bob')).status,200);
+assert.equal((await actionCall({operation:'accept',id:referenceAction,eventId:crypto.randomUUID(),mission:newId,revision:3,body:'The references meet the agreed acceptance criteria.'},'alice')).status,200);
+assert.equal((await actionCall({operation:'claim',id:prototypeAction,eventId:crypto.randomUUID(),mission:newId,revision:1},'bob')).status,200);
+const acceptedFiles=(await globalThis.__missionGit.readCommit(acceptedPlan.data.head)).files;assert.equal(JSON.parse(acceptedFiles['mission-plan.json']).id,proposedPlan.id);
+assert.equal(globalThis.__workspaceFiles.validWorkspacePath('mission-plan.json'),false);
+assert.equal('user_id' in (await planCall(null,'alice')).data.plans[0],false);
+const rejectedPlan={...proposedPlan,id:crypto.randomUUID()};assert.equal((await planCall(rejectedPlan,'alice')).status,201);assert.equal((await planCall({...approvePlan,id:rejectedPlan.id,operation:'reject'},'alice')).status,200);assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM planned_tasks WHERE plan_id=?').get(rejectedPlan.id).n,0);
+const stalePlan={...proposedPlan,id:crypto.randomUUID()};assert.equal((await planCall(stalePlan,'alice')).status,201);const originalBatch=db.batch;db.batch=async statements=>{sqlite.prepare('UPDATE mission_plans SET revision=revision+1 WHERE id=?').run(stalePlan.id);return originalBatch(statements)};try{assert.equal((await planCall({...approvePlan,id:stalePlan.id},'alice')).status,409)}finally{db.batch=originalBatch};assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM planned_tasks WHERE plan_id=?').get(stalePlan.id).n,0);
+console.log('PASS: planning proposal permissions, edits, approvals, retries, Git snapshots, rejected/stale plans create no tasks, and accepted prerequisites unlock dependent work.');

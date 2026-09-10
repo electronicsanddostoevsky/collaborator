@@ -259,6 +259,8 @@ function ActionCard({
         <span>{a.effort}</span>
       </div>
       <h3>{a.title}</h3>
+      {a.module && <p className="small-label">{a.module}</p>}
+      {!!a.blocked && a.status === 'open' && <p className="workspace-status">Waiting for {a.blocked} prerequisite task(s) to be accepted.</p>}
       <span className="small-label">{a.kind}</span>
       <p className="post-body">{a.brief}</p>
       <div className="definition-done">
@@ -276,7 +278,7 @@ function ActionCard({
         <button
           className="primary"
           disabled={busy}
-          onClick={() => act('claim')}
+          onClick={() => !a.blocked && act('claim')}
         >
           I can take this on
         </button>

@@ -99,6 +99,13 @@
       "when": 1789037915911,
       "tag": "0013_curious_tony_stark",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1789048774171,
+      "tag": "0014_stale_squadron_supreme",
+      "breakpoints": true
     }
   ]
 }

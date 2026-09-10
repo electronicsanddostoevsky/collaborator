@@ -37,6 +37,7 @@ export default async function Mission({
         <h1>{m.title}</h1>
         <p className="intro">{m.description}</p>
         <FollowMission mission={m.slug} />
+        <a className="text-button" href={'/missions/' + m.slug + '/plan'}>Plan modular work ↗</a>
         <a className="primary" href={'/missions/' + m.slug + '/workshop'}>
           Open mission workshop ↗
         </a>

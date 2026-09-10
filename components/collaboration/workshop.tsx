@@ -221,7 +221,7 @@ export default function Workshop({
     const stamp = generation.current;
     const d = await request<Status>('/status');
     if (stamp !== generation.current) return;
-    d.jobs = d.jobs.filter((j) => (j.mission || 'mahabharata') === mission);
+    d.jobs = d.jobs.filter((j) => (j.mission || 'mahabharata') === mission && j.tool !== 'mission-planner');
     setStatus(d);
     setConnected(true);
     setModel((m) => (d.models.includes(m) ? m : d.models[0] || ''));

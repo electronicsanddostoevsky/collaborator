@@ -28,12 +28,12 @@ export async function GET(req: Request) {
     const query = new URL(req.url).searchParams,
       mission = query.get('mission') || '',
       access = await missionAccess(req, mission);
-    if (!access || mission === 'mahabharata')
+    if (!access)
       return json({ error: 'Use this mission’s contribution workspace.' }, 404);
     const db = database();
     const rows = await db
       .prepare(
-        'SELECT * FROM mission_actions WHERE mission=? ORDER BY created_at DESC,id DESC LIMIT 100',
+        "SELECT a.*,p.module,(SELECT COUNT(*) FROM json_each(p.dependencies) dep LEFT JOIN mission_actions required ON required.id=dep.value WHERE required.id IS NULL OR required.status!='done') blocked FROM mission_actions a LEFT JOIN planned_tasks p ON p.action_id=a.id WHERE a.mission=? ORDER BY a.created_at DESC,a.id DESC LIMIT 100",
       )
       .bind(mission)
       .all<Row>();
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
     if (!d || !uuid(d.id) || !uuid(d.eventId) || typeof d.mission !== 'string')
       return json({ error: 'Invalid action.' }, 400);
     const access = await missionAccess(req, d.mission);
-    if (!access || d.mission === 'mahabharata')
+    if (!access)
       return json({ error: 'Mission not found.' }, 404);
     const db = database(),
       now = new Date().toISOString();
@@ -210,6 +210,8 @@ export async function POST(req: Request) {
       );
     switch (d.operation) {
       case 'claim':
+        if (await db.prepare("SELECT p.action_id FROM planned_tasks p, json_each(p.dependencies) dep LEFT JOIN mission_actions required ON required.id=dep.value WHERE p.action_id=? AND (required.id IS NULL OR required.status!='done') LIMIT 1").bind(a.id).first())
+          return json({error:'This task depends on work that has not been accepted yet.'},409);
         if (a.status !== 'open')
           return json({ error: 'Someone has already taken this action.' }, 409);
         status = 'doing';

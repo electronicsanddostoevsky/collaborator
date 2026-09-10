@@ -11,6 +11,20 @@ import connectors
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 
 class WorkshopTests(unittest.TestCase):
+    def test_planning_returns_data_without_running_project_tools(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(companion,'RUNS',Path(directory)), patch.object(companion,'generate_plan',return_value={'summary':'A bounded proposal','tasks':[]}), patch.object(companion,'execute_api') as api, patch.object(companion.subprocess,'Popen') as process:
+            companion.CANCEL.clear()
+            job={'id':str(uuid.uuid4()),'mission':'mahabharata','tool':'mission-planner','model':'test','prompt':'Plan a small milestone','status':'queued','created':1}
+            companion.save(job);companion.execute(job)
+            self.assertEqual(job['status'],'ready')
+            self.assertTrue((Path(directory)/job['id']/'result.json').is_file())
+            api.assert_not_called();process.assert_not_called()
+            companion.CANCEL.set()
+            job={**job,'id':str(uuid.uuid4()),'status':'queued'}
+            companion.save(job);companion.execute(job)
+            self.assertEqual(job['status'],'stopped')
+            self.assertFalse((Path(directory)/job['id']/'result.json').exists())
+            companion.CANCEL.clear()
     def test_generic_api_connector(self):
         class Api(BaseHTTPRequestHandler):
             def log_message(self,*args):pass

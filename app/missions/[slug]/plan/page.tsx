@@ -1,4 +1,4 @@
-import Workshop from '@/components/collaboration/workshop';
+import Planning from '@/components/collaboration/planning';
 import { missionDefinition } from '@/db/mission-git';
 import { notFound } from 'next/navigation';
 export default async function Page({
@@ -6,8 +6,8 @@ export default async function Page({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { slug } = await params;
-  const mission = await missionDefinition(slug);
+  const { slug } = await params,
+    mission = await missionDefinition(slug);
   if (!mission) notFound();
   return (
     <>
@@ -23,14 +23,18 @@ export default async function Page({
         </a>
       </header>
       <main className="action-mission">
-        <span className="eyebrow">MISSION WORKSPACE</span>
+        <span className="eyebrow">MISSION PLANNING</span>
         <h1>{mission.title}</h1>
-        <p className="body-copy">
-          Bring the tools this mission needs. Connect a computer, choose an
-          available operation, and share the result for review.
+        <p className="intro">
+          Propose a milestone, agree the work, and build it together.
         </p>
-        <a className="text-button" href={'/missions/'+slug+'/plan'}>Plan work with AI and approve tasks ↗</a>
-        <Workshop mission={slug} />
+        <a className="text-button" href={'/missions/' + slug + '/workshop'}>
+          Open mission tools ↗
+        </a>
+        <Planning
+          mission={slug}
+          title={mission.title + '. ' + mission.description}
+        />
       </main>
     </>
   );

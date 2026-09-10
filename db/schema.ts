@@ -253,3 +253,17 @@ export const missionToolsets = sqliteTable('mission_toolsets', {
   requirements: text('requirements').notNull(),
   revision: integer('revision').notNull(),
 });
+export const missionPlans = sqliteTable('mission_plans', {
+  id: text('id').primaryKey(), mission: text('mission').notNull(),
+  userId: text('user_id').notNull(), author: text('author').notNull(),
+  brief: text('brief').notNull(), model: text('model').notNull(),
+  body: text('body').notNull(), status: text('status').notNull(),
+  revision: integer('revision').notNull(), feedback: text('feedback').notNull(),
+  reviewer: text('reviewer'), head: text('head'),
+  createdAt: text('created_at').notNull(), updatedAt: text('updated_at').notNull(),
+});
+export const plannedTasks = sqliteTable('planned_tasks', {
+  actionId: text('action_id').primaryKey(), planId: text('plan_id').notNull(),
+  taskKey: text('task_key').notNull(), module: text('module').notNull(),
+  dependencies: text('dependencies').notNull(),
+});

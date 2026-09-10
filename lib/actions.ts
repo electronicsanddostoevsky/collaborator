@@ -13,6 +13,8 @@ export const actionEfforts = [
   'Flexible',
 ];
 export type ActionRecord = {
+  module?: string | null;
+  blocked?: number;
   id: string;
   mission: string;
   title: string;

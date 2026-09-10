@@ -86,3 +86,8 @@ The Git commit history is the authoritative source history. These release notes 
 - Explicit local consent, start/copy/stop controls, safe shutdown, fresh codes after restart, and retained results.
 - Windows exclusive listener prevents duplicate workshop instances; lifecycle and existing adapter tests pass.
 - Updated setup help; signed installation and browser compatibility testing remain pending.
+
+## Approved modular planning — 10 September 2026
+- Public GitHub source and revised manifesto with independent Git backup.
+- Local AI planning, editable proposals, lead approval/rejection, dependency-aware tasks and accepted Git snapshots.
+- Tested real local generation, permissions, retries and stale writes. Subdivision leads, worker sharing and Unreal execution remain pending.
