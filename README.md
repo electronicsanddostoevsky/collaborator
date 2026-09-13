@@ -4,6 +4,8 @@ A mission-first platform where people, agents, and locally connected tools help 
 
 Current prototype: persistent participation, community membership and scoped leads, approved AI work plans, task-linked reviewed contributions, per-mission Git history and forks, modular tool requirements, local Ollama or user-connected Codex generation, local Blender work, fixed read-only API connections, and a consent-first local control window. Shared worker scheduling and Unreal execution remain under development. See [MVP, scale and launch budget](docs/MVP-AND-LAUNCH.md).
 
+The invited-group increment adds a scrolling, paginated mission feed; written contributions for any mission; readable review and accepted Markdown in mission Git; and persistent supervised run tracking with explicit recovery. Start with the [invited pilot guide and hosting boundaries](docs/INVITED-PILOT.md), or the `/pilot` guide in the website. Each participant uses their own account or local model. This is supervised contribution, not transfer of subscription credentials or an unattended compute pool.
+
 Public source is at https://github.com/electronicsanddostoevsky/collaborator. See [independent continuity and licensing status](docs/INDEPENDENCE.md) before reusing or deploying. The running pilot is private; publishing source does not publish community data.
 
 ## Development

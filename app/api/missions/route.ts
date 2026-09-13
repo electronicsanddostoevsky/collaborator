@@ -206,6 +206,11 @@ export async function POST(req: Request) {
             user,
           ),
         snapshotStatement(body.id, 1, now, author, 'Created mission'),
+        db
+          .prepare(
+            'INSERT OR IGNORE INTO mission_members(id,mission,user_id,name,active,joined_at) SELECT ?,id,owner_id,?,1,? FROM community_missions WHERE id=? AND owner_id=? AND created_at=?',
+          )
+          .bind(crypto.randomUUID(), author, now, body.id, user, now),
         commit.statement,
         db
           .prepare(

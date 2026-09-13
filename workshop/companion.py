@@ -9,6 +9,7 @@ from connectors import capabilities,register,execute_api
 from planner import generate as generate_plan
 from inputs import validate_snapshot, reference_excerpt
 import codex_agent
+from writer import generate as generate_written_draft
 
 ROOT=Path(__file__).resolve().parent
 RUNS=ROOT/'runs'; RUNS.mkdir(exist_ok=True)
@@ -62,6 +63,12 @@ def execute(job):
         value=codex_agent.generate(job['model'][6:],messages[0]['content'],messages[1]['content'],CANCEL,schema=schema,timeout=timeout)
         return {'message':{'content':json.dumps(value)}}
     try:
+        if job.get('tool')=='mission-writer':
+            job['status']='planning';save(job)
+            generate_written_draft(job,folder,agent_request,CANCEL,RUNS/job['parent'] if job.get('parent') else None)
+            if CANCEL.is_set():raise InterruptedError()
+            job['status']='ready';job['elapsed']=round(time.monotonic()-start);save(job)
+            return
         if job.get('tool')=='mission-planner':
             job['status']='planning';save(job)
             plan=generate_plan(job,agent_request)
@@ -142,7 +149,7 @@ class Handler(BaseHTTPRequestHandler):
             except Exception: models=[];problem='Start Ollama and install a local model.'
             models+=['codex:'+m for m in codex_agent.MODELS]
             if models:problem=''
-            return self.respond({'version':4,'codex':True,'taskContext':True,'projectInputs':True,'blender':bool(blender()),'models':models,'problem':problem,'tools':capabilities(bool(blender())),'jobs':history(),'active':ACTIVE})
+            return self.respond({'version':5,'codex':True,'taskContext':True,'projectInputs':True,'blender':bool(blender()),'models':models,'problem':problem,'tools':capabilities(bool(blender())),'jobs':history(),'active':ACTIVE})
         bits=self.path.split('/')
         if len(bits)==4 and bits[1]=='files' and bits[3] in ('preview.png','artifact.zip','result.json'):
             try: identifier=str(uuid.UUID(bits[2]))
@@ -204,8 +211,9 @@ class Handler(BaseHTTPRequestHandler):
             parent=d.get('parent') or None
             if parent:
                 parent=str(uuid.UUID(parent))
-                if not (RUNS/parent/'scene.json').is_file(): raise ValueError('Previous scene unavailable.')
+                if not (RUNS/parent/('result.json' if tool=='mission-writer' else 'scene.json')).is_file(): raise ValueError('Previous draft unavailable.')
                 parent_job=json.loads((RUNS/parent/'job.json').read_text())
+                if parent_job.get('status')!='ready':raise ValueError('Choose a completed local draft as the parent.')
                 if parent_job.get('taskId')!=context.get('taskId'):raise ValueError('Choose a parent from the same task.')
                 if parent_job.get('mission','mahabharata')!=mission or parent_job.get('tool','blender')!=tool:raise ValueError('Choose a parent from the same mission and tool.')
             with LOCK:

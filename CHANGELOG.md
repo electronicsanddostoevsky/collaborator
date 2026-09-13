@@ -1,5 +1,14 @@
 # Collaborator platform history
 
+## 2026-09-13 — Invited community pilot
+
+- Replace the gallery with a chronological mission feed, server-side search and category filters, stable cursor pagination and automatic scrolling with a manual fallback. All created missions appear to invited testers; examples remain labeled.
+- Add a Getting started guide for mission creation, joining, own-account agents, review and recovery. New mission creators join their community automatically.
+- Add written contributions for any mission using Ollama or ChatGPT-connected Codex. Review shared text inline; acceptance records the actual Markdown in mission Git for later task context.
+- Fix the companion version check that incorrectly disabled workshop execution after an update. Add writer-aware revision parents and mission/task tool selection.
+- Record contributor starts and progress durably. Prevent overlapping tracked starts per account, cap starts at 30 per UTC day, expose stale connections and explicit recovery. These are supervised local contributions, not pooled credentials or an unattended worker queue.
+- Distribute the updated companion without private profiles, configuration or generated runs. Add SQLite multi-person workflow and Python writer tests.
+
 ## 2026-09-10 — User-connected Codex
 
 - Connect an installed Codex app server through the local companion; use a separate ChatGPT sign-in profile and discover subscription models and allowance summaries.

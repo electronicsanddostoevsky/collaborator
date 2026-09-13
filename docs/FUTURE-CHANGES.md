@@ -1,6 +1,14 @@
 # Collaborator — future change log
 
-Updated 10 September 2026. This is a prioritized backlog, not a claim that the listed integrations exist. Each item gets a separate platform commit and release entry when implemented. Mission outputs continue to use their own histories.
+Updated 13 September 2026. This is a prioritized backlog, not a claim that the listed integrations exist. Each item gets a separate platform commit and release entry when implemented. Mission outputs continue to use their own histories.
+
+## Invited pilot increment
+
+Implemented: paginated scrolling mission discovery; an invited-tester setup guide; creator membership; bounded written contributions through local models or user-connected Codex; readable review; accepted Markdown in mission Git; persistent supervised run tracking, per-user start caps and explicit stale-run recovery. These records do not remotely execute work or create an unattended worker pool.
+
+Next validation: add the owner's selected tester emails, run the guide on a second real PC and a second account, create a non-game mission, approve its plan, contribute and review one useful written result, and confirm a following task receives the accepted text. Test browser local-network permissions and reconnect after restart. The current Windows and simulated multi-person checks do not replace this trial.
+
+Next implementation: binary asset retrieval and integration; signed cross-platform installers; durable opt-in remote worker leases; contributor storage management; larger text workspaces; notifications and draft recovery. Public internet access remains off for this pilot.
 
 ## Completed in the current workshop increment
 

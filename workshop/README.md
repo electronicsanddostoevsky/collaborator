@@ -1,6 +1,12 @@
 # Collaborator local workshop
 
-This connector makes primitive 3D blockouts with local Ollama or ChatGPT-connected Codex, and local Blender. It also proposes work plans and supports fixed JSON API reads. It is not a general Blender agent or an Unreal connector.
+Version 5 creates written contributions for any mission, proposes work plans, makes primitive Blender blockouts, and supports configured fixed JSON API reads. Choose local Ollama or ChatGPT-connected Codex. It is not an unrestricted computer agent or an Unreal connector.
+
+For written work, install Python and your chosen agent only. Blender is optional and belongs to missions that need 3D work. See the website’s Getting started page for the shortest setup path. Each contributor signs into their own account on their own computer; no subscription credentials are shared with the community.
+
+Written drafts include a title, Markdown body and review checks. Local results contain draft.md and result.json. Sharing uploads the validated JSON; acceptance adds a uniquely named Markdown working file to mission Git. Future claimed tasks receive bounded excerpts of these accepted files. No generated text is executed and no web research is performed automatically.
+
+The website records a run before starting a workshop contribution. One unresolved tracked run per user and 30 starts per UTC day are allowed. The open workshop reports progress every 15 seconds; missing reports are shown as a connection that needs checking, never silently retried. Reconnect the original computer to recover. Close tracking only after checking/stopping the actual local run. These safeguards do not cap provider token usage, cover direct companion calls, or provide unattended remote execution. Planning proposals use the separate planning flow.
 
 ## Windows setup
 

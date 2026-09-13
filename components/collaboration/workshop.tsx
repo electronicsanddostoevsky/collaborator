@@ -1,8 +1,14 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import MissionTools from './mission-tools';
+import ContributorRuns from './contributor-runs';
 import CodexConnection, { agentLabel } from './codex-connection';
 import type { ToolRequirement } from '@/lib/mission-tools';
+import {
+  validWrittenDraft,
+  draftText,
+  type WrittenDraft,
+} from '@/lib/written-draft';
 type Capability = {
   id: string;
   name: string;
@@ -44,6 +50,7 @@ type Status = {
   active: string | null;
 };
 type Shared = {
+  tool?: string;
   action_id?: string | null;
   canAccept?: boolean;
   id: string;
@@ -61,7 +68,7 @@ const initial =
 const labels: Record<string, string> = {
   running: 'Reading from the connected API',
   queued: 'Waiting to begin',
-  planning: 'Planning the scene',
+  planning: 'Agent is preparing the draft',
   rendering: 'Rendering in Blender',
   ready: 'Ready to review',
   failed: 'Run needs attention',
@@ -91,6 +98,8 @@ function Review({
   revise?: () => void;
 }) {
   const [note, setNote] = useState('');
+  const [written, setWritten] = useState<WrittenDraft | null>(null),
+    [readError, setReadError] = useState('');
   return (
     <article className="ws-shared">
       <div className="update-meta">
@@ -116,6 +125,32 @@ function Review({
         />
       )}
       <p className="post-body">{item.prompt}</p>
+      {item.tool === 'mission-writer' && (
+        <div>
+          <button
+            className="text-button"
+            onClick={async () => {
+              try {
+                setReadError('');
+                const response = await fetch(
+                  '/api/workshop?' +
+                    new URLSearchParams({ mission, id: item.id, read: '1' }),
+                );
+                const value = await result<{ draft: WrittenDraft }>(response);
+                setWritten(value.draft);
+              } catch (e) {
+                setReadError(
+                  e instanceof Error ? e.message : 'Could not read draft.',
+                );
+              }
+            }}
+          >
+            Read the written contribution
+          </button>
+          {readError && <p role="alert">{readError}</p>}
+          {written && <pre className="written-draft">{draftText(written)}</pre>}
+        </div>
+      )}
       <p className="workspace-status">
         {item.model} · {item.id.slice(0, 8)}
       </p>
@@ -353,7 +388,16 @@ export default function Workshop({
       .then((blob) => {
         if (isApi) {
           blob.text().then((t) => {
-            if (!disposed) setTextPreview(t.slice(0, 12000));
+            if (!disposed) {
+              let readable = t;
+              if (job.tool === 'mission-writer') {
+                try {
+                  const draft = JSON.parse(t);
+                  if (validWrittenDraft(draft)) readable = draftText(draft);
+                } catch {}
+              }
+              setTextPreview(readable.slice(0, 12000));
+            }
           });
           return;
         }
@@ -417,12 +461,15 @@ export default function Workshop({
       await result(
         await fetch('/api/workshop?' + q, {
           method: 'POST',
-          body: await localFile(job.id, 'artifact.zip'),
+          body: await localFile(
+            job.id,
+            job.tool === 'mission-writer' ? 'result.json' : 'artifact.zip',
+          ),
         }),
       );
     if ((job.tool || 'blender') !== 'blender') {
       await loadShared();
-      setNotice('API result shared with the mission for review.');
+      setNotice('Result shared with the mission for review.');
       return;
     }
     try {
@@ -449,23 +496,39 @@ export default function Workshop({
   function revise(j: Job) {
     setTool(j.tool || 'blender');
     setParent(j.id);
-    setPrompt('Change this scene: ');
+    setPrompt(
+      j.tool === 'mission-writer'
+        ? 'Revise this written draft: '
+        : 'Change this scene: ',
+    );
     runId.current = null;
     brief.current?.focus();
     brief.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
   const selectedTool = status?.tools?.find((t) => t.id === tool);
+  const availableChoices = [
+    ...requirements.filter((r) => r.id !== 'mission-writer'),
+    {
+      id: 'mission-writer',
+      name: 'Written contribution',
+      purpose: 'Create a useful written draft with your agent.',
+    },
+  ];
   const ready =
     connected &&
-    status?.version === 3 &&
+    (status?.version || 0) >= 4 &&
     !!selectedTool?.available &&
-    requirements.some((r) => r.id === tool) &&
+    availableChoices.some((r) => r.id === tool) &&
     (!selectedTool.requiresAgent || !!model);
   useEffect(() => {
-    setTool((t) =>
-      requirements.some((r) => r.id === t) ? t : requirements[0]?.id || '',
-    );
-  }, [requirements]);
+    setTool((t) => {
+      const choices = [...requirements.map((r) => r.id), 'mission-writer'];
+      const approved = taskContext?.tools.length
+        ? choices.filter((id) => taskContext.tools.includes(id))
+        : choices;
+      return approved.includes(t) ? t : approved[0] || '';
+    });
+  }, [requirements, taskContext?.tools]);
   return (
     <>
       {taskId && (
@@ -540,6 +603,20 @@ export default function Workshop({
           {notice}
         </p>
       )}
+      <ContributorRuns
+        mission={mission}
+        jobs={status?.jobs || []}
+        connected={connected}
+      />
+      <p className="field-note">
+        <a className="text-button" href={'/missions/' + mission + '/team'}>
+          Join this mission’s community ↗
+        </a>{' '}
+        ·{' '}
+        <a className="text-button" href="/pilot">
+          Setup and recovery guide ↗
+        </a>
+      </p>
       <div className="ws-layout">
         <section className="ws-main">
           <form
@@ -555,6 +632,23 @@ export default function Workshop({
                 if (context?.tools.length && !context.tools.includes(tool))
                   throw Error('Select one of this task’s approved tools.');
                 runId.current ??= crypto.randomUUID();
+                await result(
+                  await fetch('/api/runs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      operation: 'begin',
+                      id: runId.current,
+                      mission,
+                      tool,
+                      model: selectedTool?.requiresAgent
+                        ? model
+                        : 'No agent — fixed API request',
+                      taskId: context?.id,
+                      taskRevision: context?.revision,
+                    }),
+                  }),
+                );
                 const j = await request<Job>('/run', {
                   id: runId.current,
                   prompt,
@@ -630,7 +724,7 @@ export default function Workshop({
                     <SelectValue placeholder="Add a mission requirement" />
                   </SelectTrigger>
                   <SelectContent>
-                    {requirements.map((t) => (
+                    {availableChoices.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
                         {t.name}
                       </SelectItem>
@@ -693,7 +787,9 @@ export default function Workshop({
             )}
             <p className="workspace-status">
               {selectedTool?.requiresAgent
-                ? 'Your selected agent proposes a draft. Blender creates rough 3D blockouts locally, with an eight-minute limit.'
+                ? tool === 'mission-writer'
+                  ? 'Your agent creates a written draft from the brief and supplied context. Review facts and assumptions before sharing. No web research or external actions run automatically.'
+                  : 'Your selected agent proposes a draft. Blender creates rough 3D blockouts locally, with an eight-minute limit.'
                 : selectedTool
                   ? 'One GET request to your configured endpoint. The brief is a run note; it does not change the request. Responses are limited to 1 MB and 30 seconds.'
                   : 'Connect this computer and configure an adapter for the selected requirement.'}
@@ -731,7 +827,7 @@ export default function Workshop({
               <div className="ws-preview-empty">
                 <strong>
                   {job?.status === 'planning'
-                    ? 'Your model is arranging the scene'
+                    ? 'Your agent is preparing the contribution'
                     : job?.status === 'rendering'
                       ? 'Blender is rendering your draft'
                       : job?.status === 'ready'
@@ -743,7 +839,7 @@ export default function Workshop({
                     job?.error ||
                     (job
                       ? 'Select another iteration or refine your brief.'
-                      : 'Describe an object, connect your computer, and make your first draft.')}
+                      : 'Describe a useful outcome, connect your computer, and make your first draft.')}
                 </p>
               </div>
             )}
@@ -876,7 +972,7 @@ export default function Workshop({
                 Available operations:{' '}
                 {status.tools?.filter((t) => t.available).length || 0}. Agent
                 models: {status.models.length}. {status.problem}
-                {(status.version || 0) < 4
+                {(status.version || 0) < 5
                   ? ' Restart with the updated workshop download to enable this version.'
                   : ''}
               </p>

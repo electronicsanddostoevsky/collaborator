@@ -21,8 +21,8 @@ const blank: MissionInput = {
 export default function MissionEditor() {
   const [mission, setMission] = useState(blank),
     [forkPolicy, setForkPolicy] = useState('allowed'),
-    [roles, setRoles] = useState(''),
-    [steps, setSteps] = useState(''),
+    [roles, setRoles] = useState('Help shape the mission\nContribute a draft with your agent\nReview contributions'),
+    [steps, setSteps] = useState('Agree on a first useful outcome\nPropose and review small tasks\nMake and share a first contribution'),
     [editId, setEditId] = useState<string | null>(null),
     [id] = useState(() => crypto.randomUUID()),
     [revision, setRevision] = useState(1),
@@ -109,7 +109,7 @@ export default function MissionEditor() {
         <h1>{editId ? 'Shape the next step.' : 'What should happen?'}</h1>
         <p className="intro">
           You don’t need a finished plan. Give people a clear outcome and a
-          small way to begin.
+          small way to begin. We’ve suggested a starting outline below; change it to fit your idea. Your agent can help plan the detailed work after the mission exists.
         </p>
         {error && (
           <p className="error-note" role="alert">

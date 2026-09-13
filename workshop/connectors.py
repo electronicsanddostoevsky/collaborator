@@ -11,7 +11,7 @@ def configured():
     return json.loads(CONFIG.read_text(encoding='utf-8'))
 def register(data):
     identifier=data.get('id','');name=data.get('name','');url=data.get('url','')
-    if not re.fullmatch(r'[a-z][a-z0-9-]{1,39}',identifier) or identifier in ('blender','unreal','mission-planner'):raise ValueError('Choose a distinct connector ID, e.g. weather-api.')
+    if not re.fullmatch(r'[a-z][a-z0-9-]{1,39}',identifier) or identifier in ('blender','unreal','mission-planner','mission-writer'):raise ValueError('Choose a distinct connector ID, e.g. weather-api.')
     if not isinstance(name,str) or not 2<=len(name)<=80:raise ValueError('Name the connection.')
     parsed=urlparse(url)
     if not parsed.hostname or parsed.username or parsed.password or parsed.fragment or len(url)>2000:raise ValueError('Use a URL without embedded credentials or fragments.')
@@ -24,7 +24,8 @@ def register(data):
     rows.append({'id':identifier,'name':name,'url':url,'token':token})
     temp=CONFIG.with_suffix('.tmp');temp.write_text(json.dumps(rows),encoding='utf-8');temp.replace(CONFIG)
 def capabilities(blender_ready):
-    return [{'id':'mission-planner','name':'Work planning','operation':'Propose modular work','available':True,'requiresAgent':True,'reason':'Needs an installed local model; proposals require human approval.'},
+    return [{'id':'mission-writer','name':'Written contribution','operation':'Draft useful mission work','available':True,'requiresAgent':True,'reason':'Use your connected agent; a person reviews the result.'},
+            {'id':'mission-planner','name':'Work planning','operation':'Propose modular work','available':True,'requiresAgent':True,'reason':'Needs a connected agent; proposals require human approval.'},
             {'id':'blender','name':'Blender','operation':'3D blockout','available':blender_ready,'requiresAgent':True,'reason':'' if blender_ready else 'Install Blender on this computer.'},
             {'id':'unreal','name':'Unreal Engine','operation':'Scene workflow','available':False,'requiresAgent':False,'reason':'Required for some missions; execution adapter is not connected yet.'}]+[
             {'id':r['id'],'name':r['name'],'operation':'Read API data','available':True,'requiresAgent':False,'reason':'Configured GET endpoint; access is checked when you run it.'} for r in configured()]

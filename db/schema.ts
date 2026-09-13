@@ -5,6 +5,26 @@ import {
   index,
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
+export const contributorRuns = sqliteTable(
+  'contributor_runs',
+  {
+    id: text('id').primaryKey(),
+    mission: text('mission').notNull(),
+    userId: text('user_id').notNull(),
+    author: text('author').notNull(),
+    taskId: text('task_id'),
+    taskRevision: integer('task_revision'),
+    tool: text('tool').notNull(),
+    model: text('model').notNull(),
+    status: text('status').notNull(),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [
+    index('idx_contributor_run_mission').on(t.mission, t.createdAt),
+    index('idx_contributor_run_user').on(t.userId, t.status, t.createdAt),
+  ],
+);
 export const claims = sqliteTable('claims', {
   taskId: text('task_id').primaryKey(),
   userId: text('user_id').notNull(),

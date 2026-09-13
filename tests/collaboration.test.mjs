@@ -218,7 +218,8 @@ const mergedBundle=await gitApi.GET(new Request('https://local.test/api/mission-
 console.log('PASS: reviewed merges, permissions, fixed comparisons, explicit conflict decisions, stale-head protection, retry safety, and native Git two-parent ancestry.');
 
 
-const workshopApi=await moduleFrom(replaceTeam(readFileSync('app/api/workshop/route.ts','utf8')).replace(/import \{\s*database,\s*bucket\s*\} from '@\/db\/client';/,'const database=()=>globalThis.__testDB;const bucket=()=>globalThis.__testBucket;').replace(/import \{\s*missionAccess\s*\} from '@\/db\/mission-access';/,'const missionAccess=globalThis.__access;').replace(/import \{[^}]+\} from '@\/db\/mission-git';/,'const {ensureRepository,readCommit,prepareCommit,ancestry}=globalThis.__missionGit;').replace(/import \{\s*boundedBody\s*\} from '@\/lib\/artifacts';/,'const {boundedBody}=globalThis.__uploadUtils;'));
+globalThis.__writtenDraft = await moduleFrom(readFileSync('lib/written-draft.ts','utf8'));
+const workshopApi=await moduleFrom(replaceTeam(readFileSync('app/api/workshop/route.ts','utf8')).replace(/import \{[^}]+\} from '@\/lib\/written-draft';/,'const {validWrittenDraft,draftText}=globalThis.__writtenDraft;').replace(/import \{\s*database,\s*bucket\s*\} from '@\/db\/client';/,'const database=()=>globalThis.__testDB;const bucket=()=>globalThis.__testBucket;').replace(/import \{\s*missionAccess\s*\} from '@\/db\/mission-access';/,'const missionAccess=globalThis.__access;').replace(/import \{[^}]+\} from '@\/db\/mission-git';/,'const {ensureRepository,readCommit,prepareCommit,ancestry}=globalThis.__missionGit;').replace(/import \{\s*boundedBody\s*\} from '@\/lib\/artifacts';/,'const {boundedBody}=globalThis.__uploadUtils;'));
 const workshopId=crypto.randomUUID();
 async function workshopCall(actor,action='',body=new Uint8Array([80,75,3,4,1]),id=workshopId){const headers={Origin:'https://local.test'};if(actor){headers['oai-authenticated-user-id']=actor;headers['oai-authenticated-user-email']=actor+'@example.test'}const url='https://local.test/api/workshop?'+new URLSearchParams({mission:newId,id,action,prompt:'A small garden model from my local workshop.',model:'local-test'});const response=await workshopApi.POST(new Request(url,{method:'POST',headers,body:['accept','revise'].includes(action)?JSON.stringify({feedback:'This draft has been reviewed against the brief.'}):body}));return {status:response.status,data:await response.json()}}
 assert.equal((await workshopCall()).status,401);assert.equal((await workshopCall('bob','',new Uint8Array([1,2,3]))).status,400);assert.equal((await workshopCall('bob')).status,201);assert.equal((await workshopCall('bob')).status,200);assert.equal((await workshopCall('alice')).status,409);assert.equal((await workshopCall('bob','accept')).status,403);assert.equal((await workshopCall('alice','accept')).status,200);assert.equal((await workshopCall('alice','accept')).status,200);assert.equal(sqlite.prepare('SELECT status FROM workshop_artifacts WHERE id=?').get(workshopId).status,'accepted');const acceptedWorkspace=(await fileCall(null,'alice')).data.files;assert.equal(JSON.parse(acceptedWorkspace['workshop-'+workshopId+'.json']).artifact,workshopId);const workshopGet=await workshopApi.GET(new Request('https://local.test/api/workshop?mission='+newId,{headers:{'oai-authenticated-user-id':'bob','oai-authenticated-user-email':'bob@example.test'}}));const workshopList=await workshopGet.json();assert.equal(workshopList.artifacts.length,1);assert.equal(workshopList.canAccept,false);assert.equal('user_id' in workshopList.artifacts[0],false);
@@ -284,7 +285,7 @@ async function teamCall(payload,actor,missionId=newId){const headers={'Content-T
 assert.equal((await teamCall({mission:newId,operation:'join'})).status,401);
 assert.equal((await teamCall({mission:newId,operation:'join'},'bob')).status,200);
 assert.equal((await teamCall({mission:newId,operation:'join'},'bob')).status,200);
-let teamState=(await teamCall(null,'alice')).data;const bobMember=teamState.members.find(m=>m.name==='bob').id;assert.equal(teamState.members.length,1);assert.equal('user_id' in teamState.members[0],false);
+let teamState=(await teamCall(null,'alice')).data;const bobMember=teamState.members.find(m=>m.name==='bob').id;assert.equal(teamState.members.length,2);assert.equal('user_id' in teamState.members[0],false);
 const role={mission:newId,operation:'lead',module:'Research',memberId:bobMember,revision:0};
 assert.equal((await teamCall(role,'bob')).status,403);assert.equal((await teamCall({...role,memberId:'not-a-member'},'alice')).status,400);assert.equal((await teamCall(role,'alice')).status,200);assert.equal((await teamCall(role,'alice')).status,409);
 assert.equal((await teamCall({mission:newId,operation:'leave'},'bob')).status,409);
@@ -339,3 +340,58 @@ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM action_events WHERE action_i
 assert.equal((await workshopCall('bob','accept',undefined,revisedLinked)).status,200);
 const acceptedLinkedFiles=(await globalThis.__missionGit.readCommit((await gitInfo(newId)).repository.head)).files;assert.equal(JSON.parse(acceptedLinkedFiles['workshop-'+revisedLinked+'.json']).task,artAction);assert.equal(JSON.parse(acceptedLinkedFiles['workshop-'+revisedLinked+'.json']).inputHead,revisedContext.inputHead);
 console.log('PASS: claimed task context, approved tool checks, foreign-head rejection, immutable upload retries, scoped artifact review, revision requests, and atomic artifact/task/Git acceptance.');
+
+// The trusted pilot: different creators, paginated discovery, durable run recovery,
+// and a useful written contribution accepted into the next task's Git inputs.
+sqlite.exec(readFileSync('drizzle/0017_yummy_zuras.sql','utf8'));
+const pilotMission=crypto.randomUUID();
+assert.equal((await missionCall({action:'create',id:pilotMission,mission:{...mission,title:'A neighborhood reading circle'}},'pilot-lead')).status,201);
+const pilotHeaders=actor=>({Origin:'https://local.test','Content-Type':'application/json','oai-authenticated-user-id':actor,'oai-authenticated-user-email':actor+'@example.test'});
+await teamApi.POST(new Request('https://local.test/api/team',{method:'POST',headers:pilotHeaders('pilot-helper'),body:JSON.stringify({mission:pilotMission,operation:'join'})}));
+const runApi=await moduleFrom(replaceDB(readFileSync('app/api/runs/route.ts','utf8')).replace(/import \{\s*missionAccess\s*\} from '@\/db\/mission-access';/,'const missionAccess=globalThis.__access;'));
+async function runCall(body,actor='pilot-helper') {const r=await runApi.POST(new Request('https://local.test/api/runs',{method:'POST',headers:pilotHeaders(actor),body:JSON.stringify(body)}));return {status:r.status,data:await r.json()};}
+const tracked={id:crypto.randomUUID(),operation:'begin',mission:pilotMission,tool:'mission-writer',model:'local-test'};
+assert.equal((await runCall(tracked,'outsider')).status,403);
+assert.equal((await runCall(tracked)).status,201);
+assert.equal((await runCall(tracked)).status,200);
+assert.equal((await runCall({...tracked,id:crypto.randomUUID()})).status,409);
+assert.equal((await runCall({...tracked,operation:'report',status:'ready'},'pilot-lead')).status,403);
+sqlite.prepare("UPDATE contributor_runs SET updated_at='2000-01-01T00:00:00.000Z' WHERE id=?").run(tracked.id);
+const tracking=await (await runApi.GET(new Request('https://local.test/api/runs?mission='+pilotMission,{headers:pilotHeaders('pilot-lead')}))).json();
+assert.equal(tracking.runs[0].stale,true);assert.equal('user_id' in tracking.runs[0],false);
+assert.equal((await runCall({...tracked,id:crypto.randomUUID()})).status,409); // Never silently retry stale work.
+assert.equal((await runCall({...tracked,operation:'close'})).status,400);
+assert.equal((await runCall({...tracked,operation:'report',status:'ready'})).status,200);
+assert.equal((await runCall({...tracked,operation:'report',status:'active'})).status,200);
+assert.equal(sqlite.prepare('SELECT status FROM contributor_runs WHERE id=?').get(tracked.id).status,'ready');
+const concurrent = await Promise.all([runCall({...tracked,id:crypto.randomUUID()}),runCall({...tracked,id:crypto.randomUUID()})]);
+assert.deepEqual(concurrent.map(r=>r.status).sort(),[201,409]);
+const draftId=crypto.randomUUID(),draft={title:'Reading circle invitation',body:'Invite neighbors to choose a short story and meet in an accessible shared space. Agree the time, location and discussion format before announcing the event.',checks:['Confirm venue availability before inviting attendees.']};
+async function writtenCall(actor,action='',body=draft) {
+ const q=new URLSearchParams({mission:pilotMission,id:draftId,tool:'mission-writer',prompt:'Draft an invitation and a first meeting plan.',model:'local-test',action});
+ const r=await workshopApi.POST(new Request('https://local.test/api/workshop?'+q,{method:'POST',headers:pilotHeaders(actor),body:JSON.stringify(body)}));return {status:r.status,data:await r.json()};
+}
+assert.equal((await writtenCall('pilot-helper','',{...draft,body:'too short'})).status,400);
+assert.equal((await writtenCall('pilot-helper')).status,201);
+assert.equal((await writtenCall('pilot-helper')).status,200);
+const readDraft=await workshopApi.GET(new Request('https://local.test/api/workshop?'+new URLSearchParams({mission:pilotMission,id:draftId,read:'1'}),{headers:pilotHeaders('pilot-lead')}));
+assert.deepEqual((await readDraft.json()).draft,draft);
+assert.equal((await writtenCall('pilot-helper','accept',{feedback:'I cannot approve my own work without being a lead.'})).status,403);
+assert.equal((await writtenCall('pilot-lead','accept',{feedback:'This is a useful first invitation, with venue details left for confirmation.'})).status,200);
+const writtenHead=await globalThis.__missionGit.ensureRepository(pilotMission);
+const writtenFiles=(await globalThis.__missionGit.readCommit(writtenHead.head)).files;
+assert.ok(writtenFiles['draft-'+draftId+'.md'].includes(draft.body));
+assert.equal((await writtenCall('pilot-lead','accept',{feedback:'Retry after lost response.'})).status,200);
+
+const feedApi=await moduleFrom(replaceDB(readFileSync('app/api/feed/route.ts','utf8')).replace(/import \{\s*missions\s*\} from '@\/lib\/missions';/,'const missions=globalThis.__missions;').replace(/import \{\s*categories\s*\} from '@\/lib\/mission-input';/,'const categories='+JSON.stringify(inputMod.categories)+';'));
+async function feed(q={}) {const r=await feedApi.GET(new Request('https://local.test/api/feed?'+new URLSearchParams(q)));return {status:r.status,data:await r.json()};}
+const feedIds=[]; let next=null;
+for(let i=0;i<34;i++) sqlite.prepare('INSERT INTO community_missions(id,owner_id,title,category,description,outcome,roles,steps,intent,revision,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,1,?,?)').run(crypto.randomUUID(),'feed-fixture','Feed test '+i,mission.category,mission.description,mission.outcome,JSON.stringify(mission.roles),JSON.stringify(mission.steps),'community','2001-01-01T00:00:00.000Z','2001-01-01T00:00:00.000Z');
+do {const page=await feed(next?{cursor:next}:{});assert.equal(page.status,200);assert.ok(page.data.missions.length<=15);feedIds.push(...page.data.missions.map(m=>m.id));next=page.data.nextCursor;} while(next);
+assert.equal(new Set(feedIds).size,feedIds.length);assert.ok(feedIds.includes(pilotMission));assert.ok(feedIds.includes('mahabharata'));
+assert.ok(feedIds.length>30);
+assert.equal((await feed({q:'reading circle'})).data.missions[0].id,pilotMission);
+assert.equal((await feed({q:'%'})).data.missions.length,0);
+assert.equal((await feed({cursor:'invalid'})).status,400);
+assert.equal((await feed({category:'fake'})).status,400);
+console.log('PASS: trusted-group joins, concurrent start protection, stale-run recovery, private account IDs, written contribution review and Git reuse, paginated feed, and literal search.');

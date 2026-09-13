@@ -9,6 +9,7 @@ import {
 } from '@/db/mission-git';
 import { leadScopes, coversModules, scopeGuard } from '@/db/team-access';
 import { moduleKey } from '@/lib/teams';
+import { validWrittenDraft, draftText } from '@/lib/written-draft';
 const json = (body: unknown, status = 200) =>
   Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 type Artifact = {
@@ -57,6 +58,12 @@ export async function GET(req: Request) {
         preview ? item.preview_key! : item.object_key,
       );
       if (!file) return json({ error: 'File temporarily unavailable.' }, 503);
+      if (!preview && item.tool === 'mission-writer' && q.get('read') === '1') {
+        const value = await new Response(file.body).json();
+        if (!validWrittenDraft(value))
+          return json({ error: 'The written result is unavailable.' }, 503);
+        return json({ draft: value });
+      }
       return new Response(file.body, {
         headers: {
           'Content-Type': preview ? 'image/png' : 'application/octet-stream',
@@ -65,7 +72,11 @@ export async function GET(req: Request) {
               ? 'inline; filename="preview-'
               : 'attachment; filename="workshop-') +
             item.id +
-            (preview ? '.png"' : '.zip"'),
+            (preview
+              ? '.png"'
+              : item.tool === 'mission-writer'
+                ? '.json"'
+                : '.zip"'),
           'X-Content-Type-Options': 'nosniff',
           'Cache-Control': 'private, no-store',
           'Content-Security-Policy': "sandbox; default-src 'none'",
@@ -298,7 +309,7 @@ export async function POST(req: Request) {
       }
       const repo = await ensureRepository(mission),
         prior = await readCommit(repo.head);
-      const files = {
+      const files: Record<string, string> = {
         ...prior.files,
         ['workshop-' + id + '.json']: JSON.stringify(
           {
@@ -320,6 +331,36 @@ export async function POST(req: Request) {
           2,
         ),
       };
+      if (item.tool === 'mission-writer') {
+        const stored = await bucket().get(item.object_key);
+        if (!stored)
+          return json(
+            { error: 'Written result unavailable. Retry before approving.' },
+            503,
+          );
+        const value = await new Response(stored.body).json();
+        if (!validWrittenDraft(value))
+          return json({ error: 'The written draft failed validation.' }, 400);
+        delete files['workshop-' + id + '.json'];
+        files['draft-' + id + '.md'] =
+          draftText(value) +
+          '\n## Contribution record\n\n' +
+          JSON.stringify(
+            {
+              artifact: id,
+              sha256: item.sha256,
+              model: item.model,
+              task: item.action_id,
+              inputHead: item.input_head,
+              author: item.author,
+              reviewer: access.author,
+              reviewedAt,
+            },
+            null,
+            2,
+          ) +
+          '\n';
+      }
       if (
         Object.keys(files).filter(
           (p) =>
@@ -335,6 +376,19 @@ export async function POST(req: Request) {
           {
             error:
               'The pilot workspace is full. Remove a working file before accepting another result.',
+          },
+          409,
+        );
+      if (
+        Object.values(files).reduce(
+          (size, text) => size + new TextEncoder().encode(text).length,
+          0,
+        ) > 65536
+      )
+        return json(
+          {
+            error:
+              'The mission working files are at the 64 KB pilot limit. Archive or shorten a working file before accepting this contribution.',
           },
           409,
         );
@@ -496,7 +550,31 @@ export async function POST(req: Request) {
     } catch {
       return json({ error: 'Result must be between 1 byte and 10 MB.' }, 413);
     }
-    if (bytes[0] !== 80 || bytes[1] !== 75 || bytes[2] !== 3 || bytes[3] !== 4)
+    if (tool === 'mission-writer') {
+      if (bytes.length > 32000)
+        return json({ error: 'Written results must be under 32 KB.' }, 413);
+      let value;
+      try {
+        value = JSON.parse(
+          new TextDecoder('utf-8', { fatal: true }).decode(bytes),
+        );
+      } catch {
+        return json({ error: 'Share a valid written draft.' }, 400);
+      }
+      if (!validWrittenDraft(value))
+        return json(
+          {
+            error:
+              'The draft must include a title, written body and review checks, within 32 KB.',
+          },
+          400,
+        );
+    } else if (
+      bytes[0] !== 80 ||
+      bytes[1] !== 75 ||
+      bytes[2] !== 3 ||
+      bytes[3] !== 4
+    )
       return json({ error: 'Upload the workshop ZIP result.' }, 400);
     const hash = Array.from(
       new Uint8Array(

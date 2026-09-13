@@ -48,3 +48,6 @@ workshop/__pycache__/
 workshop/.local-connectors.json
 workshop/.local-connectors.tmp
 workshop/.codex-agent/
+/optix7cache.db
+/.sites-runtime/
+tests/__pycache__/
